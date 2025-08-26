@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "mapigen"
+version = "0.1.0"
+description = "Metadata API Generator - fetch, normalize, and compress OpenAPI specs"
+authors = ["Your Name <you@example.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{ include = "mapigen", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+requests = "^2.32"
+pydantic = "^2.11.7"
+jsonschema = "^4.25.1"
+lz4 = "^4.3"
+openapi-spec-validator = "^0.7.2"
+openapi-schema-validator = "^0.6.3"  
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.1"
+pytest-cov = "^6.2.1"
