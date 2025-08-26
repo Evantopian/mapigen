@@ -2,15 +2,19 @@ import json
 import sys
 from pathlib import Path
 import logging
+import glob
 
 # Add the src directory to the Python path
 project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root / "src"))
 
 from mapigen.metadata.utils import load_spec
+from mapigen.metadata.loader import load_metadata
 
+# Configure logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
+# Define paths
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT_DIR / "src" / "mapigen" / "data"
 
@@ -43,31 +47,41 @@ def main():
         logging.info(f"---")
         logging.info(f"Validating service: {service_name}")
 
-        openapi_path = service_dir / f"{service_name}.openapi.json"
-        utilize_path = service_dir / f"{service_name}.utilize.json"
+        # Find the raw spec file, which could be .json or .yml
+        raw_spec_files = list(service_dir.glob(f"{service_name}.openapi.*"))
+        if not raw_spec_files:
+            logging.error(f"No raw OpenAPI spec file found for {service_name}. Skipping.")
+            failure_count += 1
+            continue
+        openapi_path = raw_spec_files[0]
+
+        # Path to the compressed utilize file
+        utilize_path = service_dir / f"{service_name}.utilize.json.lz4"
 
         if not openapi_path.exists() or not utilize_path.exists():
-            logging.error(f"Missing openapi.json or utilize.json for {service_name}. Skipping.")
+            logging.error(f"Missing spec or processed metadata file for {service_name}. Skipping.")
             failure_count += 1
             continue
 
         try:
-            # Load files
+            # Load files (load_metadata handles decompression)
             raw_spec = load_spec(openapi_path)
-            utilize_data = json.loads(utilize_path.read_text())
+            utilize_data = load_metadata(utilize_path)
 
+            # Count operations
             raw_count = count_openapi_operations(raw_spec)
             utilize_count = len(utilize_data)
 
+            # Compare and report
             if raw_count == utilize_count:
                 logging.info(f"SUCCESS: Operation count matches ({raw_count} operations).")
                 success_count += 1
             else:
-                logging.error(f"FAILURE: Mismatch! openapi.json has {raw_count} operations, but utilize.json has {utilize_count}.")
+                logging.error(f"FAILURE: Mismatch! Raw spec has {raw_count} operations, but processed data has {utilize_count}.")
                 failure_count += 1
         
         except Exception as e:
-            logging.error(f"An error occurred while processing {service_name}: {e}")
+            logging.error(f"An error occurred while processing {service_name}: {e}", exc_info=True)
             failure_count += 1
 
     logging.info("===")
