@@ -1,5 +1,6 @@
 import json
 import sys
+import argparse
 from pathlib import Path
 import logging
 
@@ -21,7 +22,7 @@ REGISTRY_DIR = ROOT_DIR / "src" / "mapigen" / "registry"
 CUSTOM_SOURCES_PATH = REGISTRY_DIR / "custom_sources.json"
 GITHUB_SOURCES_PATH = REGISTRY_DIR / "github_sources.json"
 
-def process_service(service_name, url, service_data_dir):
+def process_service(service_name, url, service_data_dir, keep_raw_specs):
     """
     Fetches, normalizes, and extracts metadata for a single service.
     """
@@ -51,8 +52,8 @@ def process_service(service_name, url, service_data_dir):
     except Exception as e:
         logging.error(f"Failed to process service {service_name}: {e}")
     finally:
-        # 5. Clean up raw spec file
-        if raw_spec_path and raw_spec_path.exists():
+        # 5. Clean up raw spec file unless asked to keep it
+        if not keep_raw_specs and raw_spec_path and raw_spec_path.exists():
             logging.info(f"Deleting raw spec file: {raw_spec_path}")
             raw_spec_path.unlink()
 
@@ -60,7 +61,18 @@ def main():
     """
     Main function to orchestrate the data population process.
     """
+    parser = argparse.ArgumentParser(description="Fetch and process API specifications.")
+    parser.add_argument(
+        "--keep-raw-specs",
+        action="store_true",
+        help="If set, the original downloaded OpenAPI spec files will not be deleted after processing."
+    )
+    args = parser.parse_args()
+
     logging.info("Starting data population process...")
+    if args.keep_raw_specs:
+        logging.info("Raw specification files will be kept.")
+
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     # Load sources
@@ -78,7 +90,7 @@ def main():
 
     for service_name, url in all_sources.items():
         service_data_dir = DATA_DIR / service_name
-        process_service(service_name, url, service_data_dir)
+        process_service(service_name, url, service_data_dir, args.keep_raw_specs)
 
     logging.info("Data population process finished.")
 
