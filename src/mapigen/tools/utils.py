@@ -131,11 +131,7 @@ def compress_metadata(json_path: Path) -> Path:
     return out_path
 
 
-def load_metadata(lz4_path: Path) -> dict[str, Any]:
-    compressed: bytes = lz4_path.read_bytes()
-    decompressed: bytes = lz4.frame.decompress(compressed) # type: ignore
-    text: str = decompressed.decode("utf-8") # type: ignore
-    return json.loads(text) # type: ignore
+
 
 def extract_auth_info(spec: dict[str, Any]) -> dict[str, Any]:
     """

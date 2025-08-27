@@ -1,11 +1,11 @@
 from __future__ import annotations
-import json
 import sys
 from pathlib import Path
 import logging
 from typing import Any, cast
 
-from mapigen.tools.utils import load_spec, get_params_from_operation, load_metadata
+from mapigen.tools.utils import load_spec, get_params_from_operation
+from mapigen.cache.storage import load_service_from_disk
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -22,15 +22,7 @@ def main():
         logging.info(f"--- Validating service: {service_name} ---")
 
         try:
-            utilize_path_lz4 = service_dir / f"{service_name}.utilize.json.lz4"
-            utilize_path_json = service_dir / f"{service_name}.utilize.json"
-            utilize_data: dict[str, Any]
-            if utilize_path_lz4.exists():
-                utilize_data = load_metadata(utilize_path_lz4)
-            elif utilize_path_json.exists():
-                utilize_data = json.loads(utilize_path_json.read_text())
-            else:
-                raise FileNotFoundError(f"No utilize file found for {service_name}")
+            utilize_data = load_service_from_disk(service_name)
 
             raw_spec_path = next(service_dir.glob(f"{service_name}.openapi.*"))
             raw_spec: dict[str, Any] = load_spec(raw_spec_path)

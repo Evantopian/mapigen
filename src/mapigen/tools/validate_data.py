@@ -1,13 +1,12 @@
 from __future__ import annotations
-import json
 import sys
 import yaml
 from pathlib import Path
 import logging
 from typing import Any, Optional
 
-from mapigen.tools.utils import load_spec, count_openapi_operations, load_metadata
-
+from mapigen.tools.utils import load_spec, count_openapi_operations
+from mapigen.cache.storage import load_service_from_disk    
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
@@ -76,17 +75,9 @@ def main():
             if metadata.get("format_version") != 2:
                 failures.append("Incorrect format_version in metadata.yml (expected 2).")
 
-        # Find and load processed file (compressed or uncompressed)
-        utilize_path_lz4: Path = service_dir / f"{service_name}.utilize.json.lz4"
-        utilize_path_json: Path = service_dir / f"{service_name}.utilize.json"
-        
-        if utilize_path_lz4.exists():
-            logging.info(f"Found compressed file: {utilize_path_lz4}")
-            processed_data = load_metadata(utilize_path_lz4)
-        elif utilize_path_json.exists():
-            logging.info(f"Found uncompressed file: {utilize_path_json}")
-            processed_data = json.loads(utilize_path_json.read_text())
-        else:
+        try:
+            processed_data = load_service_from_disk(service_name)
+        except FileNotFoundError:
             failures.append("Missing processed utilize file (.json or .json.lz4).")
 
         # Find raw spec file for comparison

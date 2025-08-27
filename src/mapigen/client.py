@@ -1,15 +1,13 @@
 from __future__ import annotations
-import json
 import logging
 from functools import lru_cache
-from pathlib import Path
 from typing import Any, Optional
 
 from mapigen.auth.providers import AuthProvider
-from mapigen.discovery import services as service_discovery
+from mapigen.discovery import DiscoveryClient
 from mapigen.http.sync_client import SyncHttpClient
 from mapigen.proxy import ServiceProxy
-from mapigen.tools.utils import load_metadata
+from mapigen.cache.storage import load_service_from_disk
 from mapigen.validation.schemas import build_and_validate_parameters
 from jsonschema.exceptions import ValidationError
 
@@ -29,8 +27,9 @@ class Mapi:
         self.base_url = base_url
         self.auth_provider = auth_provider
         self.http_client = SyncHttpClient()
+        self.discovery = DiscoveryClient()
         # Load the list of available services for the proxy
-        self._services = service_discovery.list_services()
+        self._services = self.discovery.list_services()
 
     def __getattribute__(self, name: str) -> Any:
         """Overrides attribute access to enable dynamic service proxies."""
@@ -53,23 +52,8 @@ class Mapi:
 
     @lru_cache(maxsize=128)
     def _load_service_data(self, service_name: str) -> dict[str, Any]:
-        """Loads the metadata for a single service, checking for uncompressed or compressed files."""
-        data_dir = Path(__file__).parent / "data"
-        service_dir = data_dir / service_name
-
-        uncompressed_path = service_dir / f"{service_name}.utilize.json"
-        compressed_path = service_dir / f"{service_name}.utilize.json.lz4"
-
-        if uncompressed_path.exists():
-            logging.info(f"Loading uncompressed service data for '{service_name}'.")
-            return json.loads(uncompressed_path.read_text())
-        elif compressed_path.exists():
-            logging.info(f"Loading compressed service data for '{service_name}'.")
-            return load_metadata(compressed_path)
-        else:
-            raise FileNotFoundError(
-                f"Service data for '{service_name}' not found. Please ensure data is populated."
-            )
+        """Loads the metadata for a single service from the cache/disk."""
+        return load_service_from_disk(service_name)
 
     def execute(
         self, service: str, operation: str, **kwargs: Any
