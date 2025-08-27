@@ -1,7 +1,9 @@
+from __future__ import annotations
 import json
 import sys
 from pathlib import Path
 import logging
+from typing import Any
 
 from mapigen.tools.utils import load_spec, get_params_from_operation, load_metadata
 
@@ -22,6 +24,7 @@ def main():
         try:
             utilize_path_lz4 = service_dir / f"{service_name}.utilize.json.lz4"
             utilize_path_json = service_dir / f"{service_name}.utilize.json"
+            utilize_data: dict[str, Any]
             if utilize_path_lz4.exists():
                 utilize_data = load_metadata(utilize_path_lz4)
             elif utilize_path_json.exists():
@@ -30,26 +33,25 @@ def main():
                 raise FileNotFoundError(f"No utilize file found for {service_name}")
 
             raw_spec_path = next(service_dir.glob(f"{service_name}.openapi.*"))
-            raw_spec = load_spec(raw_spec_path)
+            raw_spec: dict[str, Any] = load_spec(raw_spec_path)
         except (FileNotFoundError, StopIteration) as e:
             logging.error(f"Could not find necessary files for validation: {e}")
             overall_status = 1
             continue
 
-        reusable_components = utilize_data.get("components", {}).get("parameters", {})
-        operations = utilize_data.get("operations", {})
+        reusable_components: dict[str, Any] = utilize_data.get("components", {}).get("parameters", {})
+        operations: dict[str, Any] = utilize_data.get("operations", {})
         total_errors = 0
 
-        for op_id, op_data in operations.items():
+        for op_id, op_data_item in operations.items():
+            op_data: dict[str, Any] = op_data_item
             # Find the original operation details in the raw spec to get its params
-            original_op_details = None
-            original_path_params = []
-            for path, methods in raw_spec.get("paths", {}).items():
-                if not isinstance(methods, dict):
-                    continue
-                for method, details in methods.items():
-                    if not isinstance(details, dict):
-                        continue
+            original_op_details: dict[str, Any] | None = None
+            original_path_params: list[dict[str, Any]] = []
+            for methods_item in raw_spec.get("paths", {}).values():
+                methods: dict[str, Any] = methods_item # Explicitly cast
+                for details_item in methods.values():
+                    details: dict[str, Any] = details_item # Explicitly cast
                     if details.get("operationId") == op_id:
                         original_op_details = details
                         original_path_params = methods.get("parameters", [])
@@ -65,12 +67,13 @@ def main():
             ground_truth_params = get_params_from_operation(original_op_details, original_path_params, raw_spec)
             original_params_map = {f'{p["name"]}:{p["in"]}': p for p in ground_truth_params}
 
-            for param_ref in op_data.get("parameters", []):
+            for param_ref_item in op_data.get("parameters", []):
+                param_ref: dict[str, Any] = param_ref_item
                 if "$ref" not in param_ref:
                     continue
                 
-                fingerprint = param_ref["$ref"].split("/")[-1]
-                canonical_param = reusable_components.get(fingerprint)
+                fingerprint: str = param_ref["$ref"].split("/")[-1]
+                canonical_param: dict[str, Any] | None = reusable_components.get(fingerprint)
 
                 if not canonical_param:
                     logging.error(f"[{op_id}] Broken reference! Cannot find component for fingerprint '{fingerprint}'.")
@@ -78,7 +81,7 @@ def main():
                     continue
 
                 param_key = f'{canonical_param["name"]}:{canonical_param["in"]}'
-                original_param = original_params_map.get(param_key)
+                original_param: dict[str, Any] | None = original_params_map.get(param_key)
 
                 if not original_param:
                     logging.error(f"[{op_id}] Mismatch for '{param_key}'. Could not find original parameter to compare against.")
@@ -86,12 +89,13 @@ def main():
                     continue
 
                 # Compare the canonical version against the original ground truth
-                for key, value in canonical_param.items():
-                    if key not in original_param or original_param[key] != value:
-                        logging.error(f"[{op_id}] Integrity mismatch for component '{param_key}' (Fingerprint: {fingerprint}) on key '{key}'!")
-                        logging.error(f"  Canonical: {value}")
-                        logging.error(f"  Original:  {original_param.get(key)}")
-                        total_errors += 1
+                if canonical_param and original_param: # Add None check
+                    for key, value in canonical_param.items():
+                        if key not in original_param or original_param[key] != value:
+                            logging.error(f"[{op_id}] Integrity mismatch for component '{param_key}' (Fingerprint: {fingerprint}) on key '{key}'!")
+                            logging.error(f"  Canonical: {value}")
+                            logging.error(f"  Original:  {original_param.get(key)}")
+                            total_errors += 1
 
         if total_errors == 0:
             logging.info(f"SUCCESS: All component references in {service_name} are consistent.")

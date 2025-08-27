@@ -1,3 +1,4 @@
+from __future__ import annotations
 import json
 import argparse
 import yaml
@@ -6,7 +7,7 @@ import hashlib
 from pathlib import Path
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Any
+from typing import Any, Optional, cast
 
 from mapigen.metadata.fetcher import fetch_spec
 from mapigen.metadata.converter import normalize_spec
@@ -23,9 +24,9 @@ REGISTRY_DIR = ROOT_DIR / "src" / "mapigen" / "registry"
 CUSTOM_SOURCES_PATH = REGISTRY_DIR / "custom_sources.json"
 GITHUB_SOURCES_PATH = REGISTRY_DIR / "github_sources.json"
 
-def process_service(service_name: str, url: str, service_data_dir: Path) -> Dict[str, Any]:
+def process_service(service_name: str, url: str, service_data_dir: Path) -> dict[str, Any]:
     """Fetches and processes a single service spec, returning results and logs."""
-    notes = []
+    notes: list[str] = []
     try:
         notes.append(f"Fetching spec from {url}...")
         raw_spec_path = fetch_spec(service_name, url, service_data_dir)
@@ -33,15 +34,16 @@ def process_service(service_name: str, url: str, service_data_dir: Path) -> Dict
         raw_content = raw_spec_path.read_bytes()
         api_hash = hashlib.sha256(raw_content).hexdigest()
         raw_spec = load_spec(raw_spec_path)
-        servers = raw_spec.get("servers", [])
-        raw_op_count = count_openapi_operations(raw_spec)
+        servers: list[dict[str, Any]] = raw_spec.get("servers", [])
+        raw_spec_typed: dict[str, Any] = raw_spec # Explicitly cast
+        raw_op_count = count_openapi_operations(raw_spec_typed)
         notes.append(f"Found {raw_op_count} operations in raw spec.")
 
         notes.append("Normalizing and validating spec...")
         normalized_spec = normalize_spec(raw_spec_path)
 
         notes.append("Extracting lightweight 'utilize' metadata...")
-        processed_data = extract_operations_and_components(service_name, normalized_spec)
+        processed_data: dict[str, Any] = extract_operations_and_components(service_name, cast(dict[str, Any], normalized_spec))
         processed_data['servers'] = servers
         op_count = len(processed_data['operations'])
         param_count = len(processed_data['components']['parameters'])
@@ -82,7 +84,7 @@ def main():
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-    all_sources = {}
+    all_sources: dict[str, str] = {}
     if CUSTOM_SOURCES_PATH.exists():
         all_sources.update(json.loads(CUSTOM_SOURCES_PATH.read_text()))
     if GITHUB_SOURCES_PATH.exists():
@@ -95,9 +97,9 @@ def main():
     logging.info(f"Found {len(all_sources)} services to process.")
 
     for service_name, url in all_sources.items():
-        service_data_dir = DATA_DIR / service_name
-        metadata_yml_path = service_data_dir / "metadata.yml"
-        update_yml_path = service_data_dir / "update.yml"
+        service_data_dir: Path = DATA_DIR / service_name
+        metadata_yml_path: Path = service_data_dir / "metadata.yml"
+        update_yml_path: Path = service_data_dir / "update.yml"
 
         if args.cache and metadata_yml_path.exists() and not update_yml_path.exists():
             logging.info(f"[CACHED] Skipping service: {service_name}")
@@ -105,23 +107,23 @@ def main():
 
         # Clean and prepare directory
         # Keep the raw spec if it exists
-        raw_spec_path = next(service_data_dir.glob(f"{service_name}.openapi.*"), None)
+        raw_spec_path: Optional[Path] = next(service_data_dir.glob(f"{service_name}.openapi.*"), None)
         if service_data_dir.exists() and not raw_spec_path:
             shutil.rmtree(service_data_dir)
         service_data_dir.mkdir(parents=True, exist_ok=True)
 
         logging.info(f"--- Processing: {service_name} ---")
-        result = process_service(service_name, url, service_data_dir)
+        result: dict[str, Any] = process_service(service_name, url, service_data_dir)
 
-        first_accessed_time = datetime.now(timezone.utc).isoformat()
+        first_accessed_time: str = datetime.now(timezone.utc).isoformat()
         if metadata_yml_path.exists():
             try:
-                existing_metadata = yaml.safe_load(metadata_yml_path.read_text())
+                existing_metadata: dict[str, Any] = yaml.safe_load(metadata_yml_path.read_text())
                 first_accessed_time = existing_metadata.get("first_accessed", first_accessed_time)
             except (IOError, yaml.YAMLError):
                 pass
 
-        metadata_content = {
+        metadata_content: dict[str, Any] = {
             "format_version": 2,
             "first_accessed": first_accessed_time,
             "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -136,7 +138,7 @@ def main():
                 "reusable_parameter_count": result["reusable_param_count"],
                 "coverage": result["coverage"],
             })
-            utilize_path = save_metadata(service_name, result["processed_data"], service_data_dir)
+            utilize_path: Path = save_metadata(service_name, result["processed_data"], service_data_dir)
             if not args.no_compress:
                 compress_metadata(utilize_path)
                 if utilize_path.exists():

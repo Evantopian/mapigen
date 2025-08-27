@@ -6,7 +6,7 @@ def main():
     client = MapigenClient()
 
     print("\n--- Making a call to pokeapi.api_v2_pokemon_retrieve(id=25) ---")
-    response = client.execute("pokeapi", "api_v2_pokemon_retrieve", id=95)
+    response = client.execute("pokeapi", "api_v2_pokemon_retrieve", id=320)
 
     if response:
         print("\n--- API Response ---")

@@ -1,13 +1,14 @@
+from __future__ import annotations
 import yaml
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Any, List, Set
-import lz4.frame
+from typing import Any
+import lz4.frame # type: ignore
 
 VALID_METHODS = {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
 
-def load_spec(path: Path) -> Dict[str, Any]:
+def load_spec(path: Path) -> dict[str, Any]:
     """Loads a YAML or JSON spec from the given path."""
     try:
         content = path.read_text(encoding="utf-8")
@@ -21,20 +22,22 @@ def load_spec(path: Path) -> Dict[str, Any]:
         logging.error(f"Failed to load spec file {path}: {e}")
         raise
 
-def count_openapi_operations(spec: dict) -> int:
+def count_openapi_operations(spec: dict[str, Any]) -> int:
     """Counts the number of operations in a raw OpenAPI spec."""
     count = 0
-    for path_data in spec.get('paths', {}).values():
-        if isinstance(path_data, dict):
-            for method, details in path_data.items():
-                if method.lower() in VALID_METHODS and isinstance(details, dict) and details.get("operationId"):
-                    count += 1
+    for path_item in spec.get('paths', {}).values():
+        path_data: dict[str, Any] = path_item # Explicitly cast
+        for method_name, operation_details in path_data.items():
+            method: str = method_name # Explicitly cast
+            details: dict[str, Any] = operation_details # Explicitly cast
+            if method.lower() in VALID_METHODS and details.get("operationId"):
+                count += 1
     return count
 
-def _resolve_ref(spec: Dict[str, Any], ref: str) -> Dict[str, Any]:
+def _resolve_ref(spec: dict[str, Any], ref: str) -> dict[str, Any]:
     """Resolves a $ref pointer in the OpenAPI spec."""
     parts = ref.strip("#/").split("/")
-    node = spec
+    node: dict[str, Any] = spec
     for part in parts:
         if part not in node:
             logging.warning(f"Could not resolve $ref: '{ref}'. Part '{part}' not found.")
@@ -42,10 +45,10 @@ def _resolve_ref(spec: Dict[str, Any], ref: str) -> Dict[str, Any]:
         node = node[part]
     return node
 
-def _extract_parameter_details(param_data: Dict[str, Any]) -> Dict[str, Any]:
+def _extract_parameter_details(param_data: dict[str, Any]) -> dict[str, Any]:
     """Extracts all relevant details from a parameter definition."""
-    details = {}
-    schema = param_data.get("schema", param_data)
+    details: dict[str, Any] = {}
+    schema: dict[str, Any] = param_data.get("schema", param_data)
     # Define a consistent set of keys to check for fingerprinting
     for key in sorted(["description", "deprecated", "required", "default", "enum", "pattern", "minLength", "maxLength", "minimum", "maximum", "format"]):
         if key in param_data:
@@ -58,14 +61,12 @@ def _extract_parameter_details(param_data: Dict[str, Any]) -> Dict[str, Any]:
         details["required"] = param_data.get("required", False)
     return details
 
-def _unwrap_schema_properties(schema: Dict[str, Any], spec: Dict[str, Any], visited: Set[str]) -> List[Dict[str, Any]]:
+def _unwrap_schema_properties(schema: dict[str, Any], spec: dict[str, Any], visited: set[str]) -> list[dict[str, Any]]:
     """Recursively unwraps a schema's properties into a flat list of parameters."""
-    params = []
-    if not isinstance(schema, dict):
-        return params
+    params: list[dict[str, Any]] = []
 
     if "$ref" in schema:
-        ref_path = schema["$ref"]
+        ref_path: str = schema["$ref"] # Explicitly cast
         if ref_path in visited:
             return [] # Avoid circular recursion
         visited.add(ref_path)
@@ -76,12 +77,11 @@ def _unwrap_schema_properties(schema: Dict[str, Any], spec: Dict[str, Any], visi
         for sub_schema in schema["allOf"]:
             params.extend(_unwrap_schema_properties(sub_schema, spec, visited))
 
-    for name, prop_data in schema.get("properties", {}).items():
-        if not isinstance(prop_data, dict):
-            continue
+    for name, prop_data_item in schema.get("properties", {}).items():
+        prop_data: dict[str, Any] = prop_data_item # Explicitly cast
         
         if "$ref" in prop_data:
-            ref_path = prop_data["$ref"]
+            ref_path: str = prop_data["$ref"] # Explicitly cast
             if ref_path in visited:
                 continue
             visited.add(ref_path)
@@ -96,9 +96,9 @@ def _unwrap_schema_properties(schema: Dict[str, Any], spec: Dict[str, Any], visi
             
     return params
 
-def get_params_from_operation(op_details: Dict[str, Any], path_params: List[Dict[str, Any]], spec: Dict[str, Any]) -> List[Dict[str, Any]]:
+def get_params_from_operation(op_details: dict[str, Any], path_params: list[dict[str, Any]], spec: dict[str, Any]) -> list[dict[str, Any]]:
     """Gets all parameters for an operation from its `parameters` array and `requestBody`."""
-    params = []
+    params: list[dict[str, Any]] = []
     for param_def in path_params + op_details.get("parameters", []):
         if "$ref" in param_def:
             param_def = _resolve_ref(spec, param_def["$ref"])
@@ -124,15 +124,15 @@ def compress_metadata(json_path: Path) -> Path:
     """
     raw_bytes: bytes = json_path.read_bytes()
 
-    compressed: bytes = lz4.frame.compress(raw_bytes)
+    compressed: bytes = lz4.frame.compress(raw_bytes) # type: ignore
 
     out_path = json_path.with_suffix(json_path.suffix + ".lz4")
-    out_path.write_bytes(compressed)
+    out_path.write_bytes(compressed) # type: ignore
     return out_path
 
 
-def load_metadata(lz4_path: Path) -> Dict[str, Any]:
+def load_metadata(lz4_path: Path) -> dict[str, Any]:
     compressed: bytes = lz4_path.read_bytes()
-    decompressed: bytes = lz4.frame.decompress(compressed)
-    text: str = decompressed.decode("utf-8")
-    return json.loads(text)
+    decompressed: bytes = lz4.frame.decompress(compressed) # type: ignore
+    text: str = decompressed.decode("utf-8") # type: ignore
+    return json.loads(text) # type: ignore

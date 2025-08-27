@@ -1,9 +1,10 @@
+from __future__ import annotations
 import json
 import sys
 import yaml
 from pathlib import Path
 import logging
-from typing import List
+from typing import Any, Optional
 
 from mapigen.tools.utils import load_spec, count_openapi_operations, load_metadata
 
@@ -18,9 +19,9 @@ VALID_METHODS = {"get", "put", "post", "delete", "options", "head", "patch", "tr
 
 
 
-def validate_operations_and_refs(data: dict, service_name: str) -> List[str]:
+def validate_operations_and_refs(data: dict[str, Any], service_name: str) -> list[str]:
     """Validates the integrity of operations and their parameter references."""
-    errors = []
+    errors: list[str] = []
     operations = data.get("operations", {})
     components = data.get("components", {}).get("parameters", {})
 
@@ -50,34 +51,34 @@ def main():
     """Main validation function."""
     logging.info("Starting validation of data files...")
 
-    service_dirs = [d for d in DATA_DIR.iterdir() if d.is_dir()]
+    service_dirs: list[Path] = [d for d in DATA_DIR.iterdir() if d.is_dir()]
     if not service_dirs:
         logging.warning("No service data found to validate.")
         return
 
-    total_success = 0
-    total_failure = 0
+    total_success: int = 0
+    total_failure: int = 0
 
     for service_dir in service_dirs:
-        service_name = service_dir.name
+        service_name: str = service_dir.name
         logging.info("---")
         logging.info(f"Validating service: {service_name}")
         
-        failures = []
-        processed_data = None
+        failures: list[str] = []
+        processed_data: Optional[dict[str, Any]] = None
 
         # Check for metadata.yml
-        metadata_path = service_dir / "metadata.yml"
+        metadata_path: Path = service_dir / "metadata.yml"
         if not metadata_path.exists():
             failures.append("Missing metadata.yml file.")
         else:
-            metadata = yaml.safe_load(metadata_path.read_text())
+            metadata: dict[str, Any] = yaml.safe_load(metadata_path.read_text())
             if metadata.get("format_version") != 2:
                 failures.append("Incorrect format_version in metadata.yml (expected 2).")
 
         # Find and load processed file (compressed or uncompressed)
-        utilize_path_lz4 = service_dir / f"{service_name}.utilize.json.lz4"
-        utilize_path_json = service_dir / f"{service_name}.utilize.json"
+        utilize_path_lz4: Path = service_dir / f"{service_name}.utilize.json.lz4"
+        utilize_path_json: Path = service_dir / f"{service_name}.utilize.json"
         
         if utilize_path_lz4.exists():
             logging.info(f"Found compressed file: {utilize_path_lz4}")
@@ -89,24 +90,25 @@ def main():
             failures.append("Missing processed utilize file (.json or .json.lz4).")
 
         # Find raw spec file for comparison
-        raw_spec_files = list(service_dir.glob(f"{service_name}.openapi.*"))
+        raw_spec_files: list[Path] = list(service_dir.glob(f"{service_name}.openapi.*"))
         if not raw_spec_files:
             logging.warning("No raw OpenAPI spec file found. Skipping operation count comparison.")
-            raw_op_count = -1 # Sentinel value
+            raw_op_count: int = -1 # Sentinel value
         else:
-            raw_spec = load_spec(raw_spec_files[0])
-            raw_op_count = count_openapi_operations(raw_spec)
+            raw_spec: dict[str, Any] = load_spec(raw_spec_files[0])
+            raw_spec_typed: dict[str, Any] = raw_spec # Explicitly cast
+            raw_op_count = count_openapi_operations(raw_spec_typed)
 
         if processed_data:
             # 1. Validate data integrity and references
-            integrity_errors = validate_operations_and_refs(processed_data, service_name)
+            integrity_errors: list[str] = validate_operations_and_refs(processed_data, service_name)
             if integrity_errors:
                 failures.extend(integrity_errors)
             else:
                 logging.info("Data integrity and reference checks passed.")
 
             # 2. Compare operation counts
-            processed_op_count = len(processed_data.get("operations", {}))
+            processed_op_count: int = len(processed_data.get("operations", {}))
             if raw_op_count != -1 and raw_op_count != processed_op_count:
                 failures.append(f"Operation count mismatch: Raw spec has {raw_op_count}, processed has {processed_op_count}.")
             elif raw_op_count != -1:
