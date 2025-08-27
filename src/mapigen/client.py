@@ -10,6 +10,8 @@ from mapigen.discovery import services as service_discovery
 from mapigen.http.sync_client import SyncHttpClient
 from mapigen.proxy import ServiceProxy
 from mapigen.tools.utils import load_metadata
+from mapigen.validation.schemas import build_and_validate_parameters
+from jsonschema.exceptions import ValidationError
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -77,6 +79,16 @@ class Mapi:
             service_data = self._load_service_data(service)
         except FileNotFoundError as e:
             logging.error(f"Could not load service data for '{service}'. {e}")
+            return None
+
+        # Validate parameters before proceeding
+        try:
+            build_and_validate_parameters(service_data, operation, kwargs)
+        except ValidationError as e:
+            logging.error(f"Parameter validation failed for {service}.{operation}: {e.message}")
+            return None
+        except ValueError as e:
+            logging.error(f"Could not validate parameters: {e}")
             return None
 
         op_details: Optional[dict[str, Any]] = service_data.get("operations", {}).get(

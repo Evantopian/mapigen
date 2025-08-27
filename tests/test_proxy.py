@@ -18,6 +18,14 @@ def test_proxy_success():
         result = client.pokeapi.api_v2_pokemon_retrieve(id='ditto')
         if result and 'name' in result and result['name'] == 'ditto':
             print("SUCCESS: Proxy test successful! Received data for Ditto.")
+            # Print condensed JSON
+            condensed_result = {
+                "id": result.get("id"),
+                "name": result.get("name"),
+                "height": result.get("height"),
+                "weight": result.get("weight"),
+            }
+            print(f"Condensed result: {condensed_result}")
         else:
             print(f"FAILURE: Proxy test may have failed. Unexpected result: {result}")
 
@@ -71,8 +79,34 @@ def test_auth_provider_headers(mock_request: MagicMock):
         print(f"FAILURE: Auth headers are incorrect. Expected {expected_header}")
 
 
+def test_validation_missing_required():
+    """Tests that a call with a missing required parameter fails validation."""
+    print("\n--- Running Test: test_validation_missing_required ---")
+    client = Mapi()
+    # This call should fail because 'id' is required.
+    result = client.pokeapi.api_v2_pokemon_retrieve()
+    if result is None:
+        print("SUCCESS: Call with missing required parameter correctly failed validation.")
+    else:
+        print(f"FAILURE: Call with missing required parameter did not fail. Result: {result}")
+
+
+def test_validation_unexpected_param():
+    """Tests that a call with an unexpected parameter fails validation."""
+    print("\n--- Running Test: test_validation_unexpected_param ---")
+    client = Mapi()
+    # This call should fail because 'foo' is not a valid parameter.
+    result = client.pokeapi.api_v2_pokemon_retrieve(id='ditto', foo='bar')
+    if result is None:
+        print("SUCCESS: Call with unexpected parameter correctly failed validation.")
+    else:
+        print(f"FAILURE: Call with unexpected parameter did not fail. Result: {result}")
+
+
 
 if __name__ == "__main__":
     test_proxy_success()
     test_proxy_non_existent_service()
     test_auth_provider_headers()
+    test_validation_missing_required()
+    test_validation_unexpected_param()
