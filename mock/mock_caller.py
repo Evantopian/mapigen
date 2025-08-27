@@ -6,7 +6,7 @@ def main():
     client = Mapi()
 
     print("\n--- Making a call to pokeapi.api_v2_pokemon_retrieve(id=25) ---")
-    response = client.execute("pokeapi", "api_v2_pokemon_retrieve", id="ditto")
+    response = client.execute("pokeapi", "api_v2_pokemon_retrieve", id="25")
 
     if response:
         print("\n--- API Response ---")

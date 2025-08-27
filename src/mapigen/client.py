@@ -3,7 +3,8 @@ import logging
 from functools import lru_cache
 from typing import Any, Optional, NamedTuple, Dict
 
-from mapigen.auth.providers import AuthProvider
+from niquests.auth import AuthBase
+
 from mapigen.discovery import DiscoveryClient
 from mapigen.http.transport import HttpTransport
 from mapigen.proxy import ServiceProxy
@@ -28,13 +29,12 @@ class Mapi:
     def __init__(
         self,
         base_url: Optional[str] = None,
-        auth_provider: Optional[AuthProvider] = None,
+        auth: Optional[AuthBase] = None,
         **transport_kwargs: Any,
     ) -> None:
         self._service_cache: Dict[str, Dict[str, Any]] = {}
         self.base_url = base_url
-        self.auth_provider = auth_provider
-        self.http_client = HttpTransport(**transport_kwargs)
+        self.http_client = HttpTransport(auth=auth, **transport_kwargs)
         self.discovery = DiscoveryClient()
         self._services = self.discovery.list_services()
 
@@ -46,14 +46,6 @@ class Mapi:
         except AttributeError:
             pass
         return object.__getattribute__(self, name)
-
-    def set_auth_provider(self, provider: AuthProvider) -> None:
-        """Sets the authentication provider for this client instance."""
-        self.auth_provider = provider
-
-    def with_auth(self, provider: AuthProvider) -> Mapi:
-        """Creates a new client instance with the specified authentication provider."""
-        return Mapi(base_url=self.base_url, auth_provider=provider)
 
     @lru_cache(maxsize=128)
     def _load_service_data(self, service_name: str) -> Dict[str, Any]:
@@ -93,13 +85,6 @@ class Mapi:
         query_params: Dict[str, Any] = {}
         body_params: Dict[str, Any] = {}
         headers: Dict[str, Any] = {}
-        
-        if self.auth_provider:
-            auth_headers = self.auth_provider.get_auth_headers()
-            auth_params = self.auth_provider.get_auth_params()
-            # Use explicit type annotations and proper dict methods
-            headers.update(auth_headers)  # type: ignore[arg-type]
-            query_params.update(auth_params)  # type: ignore[arg-type]
 
         for param_ref in op_details.get("parameters", []):
             param_details = param_ref

@@ -4,14 +4,16 @@ import logging
 from typing import Any, Optional, Dict
 
 import niquests
+from niquests.auth import AuthBase
 from niquests.models import Response
 
 
 class HttpTransport:
     """A unified HTTP transport using niquests."""
 
-    def __init__(self, **transport_kwargs: Any) -> None:
+    def __init__(self, auth: Optional[AuthBase] = None, **transport_kwargs: Any) -> None:
         self._transport_kwargs = transport_kwargs
+        self._auth = auth
         self._sync_session = niquests.Session(**self._transport_kwargs)
         self._async_session: Optional[niquests.AsyncSession] = None
         logging.info(f"HttpTransport initialized with options: {transport_kwargs}")
@@ -32,8 +34,7 @@ class HttpTransport:
         """Makes a synchronous HTTP request and returns the JSON response."""
         try:
             logging.info(f"Executing sync {method} request to {url}")
-            # Type annotation helps the type checker understand the return type
-            response: Response = self._sync_session.request(method, url, **kwargs)  # type: ignore[misc]
+            response: Response = self._sync_session.request(method, url, auth=self._auth, **kwargs)  # type: ignore[misc]
             response.raise_for_status()
             return response.json()
         except niquests.exceptions.RequestException as e:
@@ -50,8 +51,7 @@ class HttpTransport:
         session = self._ensure_async_session()
         try:
             logging.info(f"Executing async {method} request to {url}")
-            # Type annotation helps the type checker understand the return type
-            response: Response = await session.request(method, url, **kwargs)  # type: ignore[misc]
+            response: Response = await session.request(method, url, auth=self._auth, **kwargs)  # type: ignore[misc]
             response.raise_for_status()
             return response.json()
         except niquests.exceptions.RequestException as e:
