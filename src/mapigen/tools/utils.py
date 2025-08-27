@@ -136,3 +136,30 @@ def load_metadata(lz4_path: Path) -> dict[str, Any]:
     decompressed: bytes = lz4.frame.decompress(compressed) # type: ignore
     text: str = decompressed.decode("utf-8") # type: ignore
     return json.loads(text) # type: ignore
+
+def extract_auth_info(spec: dict[str, Any]) -> dict[str, Any]:
+    """
+    Extracts authentication information from the OpenAPI spec's security schemes.
+    """
+    auth_types: list[str] = []
+    primary_auth: str = "none"
+    
+    security_schemes: dict[str, Any] = spec.get("components", {}).get("securitySchemes", {})
+    
+    for _, scheme_details in security_schemes.items():
+        auth_type = scheme_details.get("type")
+        if auth_type == "http":
+            scheme = scheme_details.get("scheme", "").lower()
+            if scheme == "bearer":
+                auth_types.append("bearer_token")
+            elif scheme == "basic":
+                auth_types.append("basic_auth")
+        elif auth_type == "apiKey":
+            auth_types.append("api_key")
+        elif auth_type == "oauth2":
+            auth_types.append("oauth2")
+
+    if auth_types:
+        primary_auth = auth_types[0]
+
+    return {"auth_types": auth_types, "primary_auth": primary_auth}

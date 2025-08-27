@@ -1,9 +1,9 @@
-from mapigen import MapigenClient
+from mapigen import Mapi
 
 def main():
-    """Demonstrates how to use the MapigenClient."""
-    print("--- Initializing MapigenClient ---")
-    client = MapigenClient()
+    """Demonstrates how to use the mapi."""
+    print("--- Initializing mapi ---")
+    client = Mapi()
 
     print("\n--- Making a call to pokeapi.api_v2_pokemon_retrieve(id=25) ---")
     response = client.execute("pokeapi", "api_v2_pokemon_retrieve", id=320)

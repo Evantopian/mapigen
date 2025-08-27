@@ -10,7 +10,7 @@ from mapigen.tools.utils import load_metadata
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-class MapigenClient:
+class Mapi:
     """A metadata-driven API client."""
 
     def __init__(self, base_url: Optional[str] = None):

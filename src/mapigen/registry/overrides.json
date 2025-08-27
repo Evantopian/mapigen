@@ -1,0 +1,8 @@
+{
+  "github": {
+    "auth": {
+      "auth_types": ["bearer_token", "basic_auth"],
+      "primary_auth": "bearer_token"
+    }
+  }
+}

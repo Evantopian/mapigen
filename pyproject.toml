@@ -2,8 +2,8 @@
 name = "mapigen"
 version = "0.1.0"
 description = "Metadata API Generator - fetch, normalize, and compress OpenAPI specs"
-authors = ["Your Name <you@example.com>"]
-license = "MIT"
+authors = ["Evan Huang <meoya.dev@gmail.com>"]
+license = "Apache-2.0"
 readme = "README.md"
 packages = [{ include = "mapigen", from = "src" }]
 

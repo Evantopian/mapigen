@@ -12,17 +12,20 @@ from typing import Any, Optional, cast
 from mapigen.metadata.fetcher import fetch_spec
 from mapigen.metadata.converter import normalize_spec
 from mapigen.metadata.extractor import extract_operations_and_components, save_metadata
-from mapigen.tools.utils import count_openapi_operations, load_spec, compress_metadata
+from mapigen.tools.utils import count_openapi_operations, load_spec, compress_metadata, extract_auth_info
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Define paths
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
-DATA_DIR = ROOT_DIR / "src" / "mapigen" / "data"
-REGISTRY_DIR = ROOT_DIR / "src" / "mapigen" / "registry"
+SRC_DIR = ROOT_DIR / "src" / "mapigen"
+DATA_DIR = SRC_DIR / "data"
+REGISTRY_DIR = SRC_DIR / "registry"
 CUSTOM_SOURCES_PATH = REGISTRY_DIR / "custom_sources.json"
 GITHUB_SOURCES_PATH = REGISTRY_DIR / "github_sources.json"
+OVERRIDES_PATH = REGISTRY_DIR / "overrides.json"
+SERVICES_JSON_PATH = SRC_DIR / "services.json"
 
 def process_service(service_name: str, url: str, service_data_dir: Path) -> dict[str, Any]:
     """Fetches and processes a single service spec, returning results and logs."""
@@ -34,6 +37,10 @@ def process_service(service_name: str, url: str, service_data_dir: Path) -> dict
         raw_content = raw_spec_path.read_bytes()
         api_hash = hashlib.sha256(raw_content).hexdigest()
         raw_spec = load_spec(raw_spec_path)
+        
+        notes.append("Extracting auth info...")
+        auth_info = extract_auth_info(raw_spec)
+
         servers: list[dict[str, Any]] = raw_spec.get("servers", [])
         raw_spec_typed: dict[str, Any] = raw_spec # Explicitly cast
         raw_op_count = count_openapi_operations(raw_spec_typed)
@@ -55,6 +62,7 @@ def process_service(service_name: str, url: str, service_data_dir: Path) -> dict
             "status": "success",
             "api_hash": api_hash,
             "servers": servers,
+            "auth_info": auth_info,
             "processed_op_count": op_count,
             "reusable_param_count": param_count,
             "coverage": coverage,
@@ -90,11 +98,20 @@ def main():
     if GITHUB_SOURCES_PATH.exists():
         all_sources.update(json.loads(GITHUB_SOURCES_PATH.read_text()))
 
+    overrides: dict[str, Any] = {}
+    if OVERRIDES_PATH.exists():
+        logging.info(f"Loading overrides from {OVERRIDES_PATH}")
+        overrides = json.loads(OVERRIDES_PATH.read_text())
+
     if not all_sources:
         logging.warning("No sources found in registry. Exiting.")
         return
 
     logging.info(f"Found {len(all_sources)} services to process.")
+    
+    service_registry: dict[str, Any] = {}
+    services_requiring_override_fix: list[str] = []
+    services_with_active_override: list[str] = []
 
     for service_name, url in all_sources.items():
         service_data_dir: Path = DATA_DIR / service_name
@@ -103,10 +120,29 @@ def main():
 
         if args.cache and metadata_yml_path.exists() and not update_yml_path.exists():
             logging.info(f"[CACHED] Skipping service: {service_name}")
+            if metadata_yml_path.exists():
+                try:
+                    metadata = yaml.safe_load(metadata_yml_path.read_text())
+                    auth_info = {
+                        "auth_types": metadata.get("auth_types", []),
+                        "primary_auth": metadata.get("primary_auth", "none")
+                    }
+                    # Apply override to cached data as well
+                    if service_name in overrides and "auth" in overrides[service_name]:
+                        logging.info(f"Applying auth override for {service_name} from cache.")
+                        auth_info.update(overrides[service_name]["auth"])
+
+                    service_registry[service_name] = {
+                        "path": f"data/{service_name}",
+                        "operation_count": metadata.get("operation_count", 0),
+                        "auth_types": auth_info["auth_types"],
+                        "primary_auth": auth_info["primary_auth"],
+                        "popularity_rank": metadata.get("popularity_rank", 999)
+                    }
+                except (IOError, yaml.YAMLError) as e:
+                    logging.error(f"Could not read cached metadata for {service_name}: {e}")
             continue
 
-        # Clean and prepare directory
-        # Keep the raw spec if it exists
         raw_spec_path: Optional[Path] = next(service_data_dir.glob(f"{service_name}.openapi.*"), None)
         if service_data_dir.exists() and not raw_spec_path:
             shutil.rmtree(service_data_dir)
@@ -132,24 +168,80 @@ def main():
         }
 
         if result["status"] == "success":
+            original_auth_info = result["auth_info"]
+            final_auth_info = original_auth_info.copy()
+
+            # Check if an override is needed and/or applied
+            if not original_auth_info["auth_types"]:
+                if service_name in overrides and "auth" in overrides[service_name]:
+                    services_with_active_override.append(service_name)
+                    logging.info(f"Auth override is active for {service_name}.")
+                else:
+                    services_requiring_override_fix.append(service_name)
+                    logging.warning(f"{service_name} has no auth types and needs an override.")
+
+            # Apply override
+            if service_name in overrides and "auth" in overrides[service_name]:
+                logging.info(f"Applying auth override for {service_name}.")
+                final_auth_info.update(overrides[service_name]["auth"])
+
             metadata_content.update({
                 "api_hash": result["api_hash"],
                 "operation_count": result["processed_op_count"],
                 "reusable_parameter_count": result["reusable_param_count"],
                 "coverage": result["coverage"],
+                "auth_types": final_auth_info["auth_types"],
+                "primary_auth": final_auth_info["primary_auth"]
             })
+            
+            service_registry[service_name] = {
+                "path": f"data/{service_name}",
+                "operation_count": result["processed_op_count"],
+                "auth_types": final_auth_info["auth_types"],
+                "primary_auth": final_auth_info["primary_auth"],
+                "popularity_rank": 999 # Default rank
+            }
+
             utilize_path: Path = save_metadata(service_name, result["processed_data"], service_data_dir)
             if not args.no_compress:
                 compress_metadata(utilize_path)
                 if utilize_path.exists():
                     utilize_path.unlink()
-        
-        metadata_content["notes"] = result["notes"]
 
         metadata_yml_path.write_text(yaml.dump(metadata_content, indent=2, sort_keys=False), encoding="utf-8")
         logging.info(f"Finished processing: {service_name} with status: {result['status']}")
 
-        
+    if service_registry:
+        logging.info(f"Writing global service registry to {SERVICES_JSON_PATH}...")
+        SERVICES_JSON_PATH.write_text(json.dumps(service_registry, indent=2))
+
+    # Generate authentication notice file
+    AUTH_NOTICE_PATH = REGISTRY_DIR / "AUTH_NOTICE.md"
+    if not services_requiring_override_fix and not services_with_active_override:
+        if AUTH_NOTICE_PATH.exists():
+            AUTH_NOTICE_PATH.unlink()
+            logging.info("All services have auth info; removing old notice file.")
+    else:
+        notice_content = """# Authentication Override Notice
+
+This notice provides a summary of authentication configurations for the processed services.
+"""
+
+        if services_with_active_override:
+            notice_content += "\n---\n\n### Active Overrides\n\nThe following services have incomplete OpenAPI specifications. Manual authentication overrides were successfully found and applied from `src/mapigen/registry/overrides.json`. No action is needed for these services.\n\n"
+
+            for service in sorted(services_with_active_override):
+                notice_content += f"- `{service}`\n"
+
+        if services_requiring_override_fix:
+            notice_content += "\n---\n\n### ACTION REQUIRED: Add Override\n\nThe following services were processed but have no declared authentication methods, and no override was found.\n\nTo ensure the SDK can work with these services, you must add a manual override to `src/mapigen/registry/overrides.json`.\n\n**Services needing an override:**\n\n"
+            for service in sorted(services_requiring_override_fix):
+                notice_content += f"- `{service}`\n"
+            
+            notice_content += "\n**How to fix:**\n\n1. Consult the service's API documentation to determine the correct authentication method(s).\n2. Add an entry to `src/mapigen/registry/overrides.json`.\n\n"
+
+        AUTH_NOTICE_PATH.write_text(notice_content)
+        logging.warning(f"Auth Notice generated at {AUTH_NOTICE_PATH}. Action may be required.")
 
     logging.info("Data population process finished.")
 

@@ -1,3 +1,3 @@
-from .client import MapigenClient
+from .client import Mapi
 
-__all__ = ["MapigenClient"]
+__all__ = ["Mapi"]
