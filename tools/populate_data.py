@@ -2,6 +2,8 @@ import json
 import sys
 import argparse
 import yaml
+import shutil
+import hashlib
 from pathlib import Path
 import logging
 from datetime import datetime, timezone
@@ -12,7 +14,7 @@ sys.path.insert(0, str(project_root / "src"))
 
 from mapigen.metadata.fetcher import fetch_spec
 from mapigen.metadata.converter import normalize_spec
-from mapigen.metadata.extractor import extract_operations, save_metadata
+from mapigen.metadata.extractor import extract_operations_and_components, save_metadata
 from mapigen.metadata.loader import compress_metadata
 
 # Configure logging
@@ -25,13 +27,19 @@ REGISTRY_DIR = ROOT_DIR / "src" / "mapigen" / "registry"
 CUSTOM_SOURCES_PATH = REGISTRY_DIR / "custom_sources.json"
 GITHUB_SOURCES_PATH = REGISTRY_DIR / "github_sources.json"
 
-def process_service(service_name, url, service_data_dir, keep_raw_specs):
+def process_service(service_name, url, service_data_dir, keep_raw_specs, no_compress):
     """
     Fetches, normalizes, and extracts metadata for a single service.
     """
     raw_spec_path = None
     utilize_path = None
     try:
+        # Clean the specific service directory before processing
+        logging.info(f"Cleaning service directory: {service_data_dir}")
+        if service_data_dir.exists():
+            shutil.rmtree(service_data_dir)
+        service_data_dir.mkdir(parents=True)
+
         logging.info(f"Processing service: {service_name}")
 
         # 1. Fetch spec
@@ -39,17 +47,9 @@ def process_service(service_name, url, service_data_dir, keep_raw_specs):
         raw_spec_path = fetch_spec(service_name, url, service_data_dir)
         logging.info(f"Spec saved to {raw_spec_path}")
 
-        # 2. Create metadata.yml
-        now_utc = datetime.now(timezone.utc).isoformat()
-        metadata_content = {
-            "last_accessed": now_utc,
-            "last_updated": now_utc,
-            "api_reference": url,
-            "notes": ""
-        }
-        metadata_yml_path = service_data_dir / "metadata.yml"
-        metadata_yml_path.write_text(yaml.dump(metadata_content, indent=2), encoding="utf-8")
-        logging.info(f"Saved service metadata to {metadata_yml_path}")
+        # 2. Calculate hash of the raw spec
+        raw_content = raw_spec_path.read_bytes()
+        api_hash = hashlib.sha256(raw_content).hexdigest()
 
         # 3. Normalize and validate spec
         logging.info("Normalizing and validating spec...")
@@ -58,26 +58,42 @@ def process_service(service_name, url, service_data_dir, keep_raw_specs):
 
         # 4. Extract lightweight metadata
         logging.info("Extracting lightweight 'utilize' metadata...")
-        operations = extract_operations(service_name, normalized_spec)
-        logging.info(f"Extracted {len(operations)} operations.")
+        processed_data = extract_operations_and_components(service_name, normalized_spec)
+        op_count = len(processed_data['operations'])
+        param_count = len(processed_data['components']['parameters'])
+        logging.info(f"Extracted {op_count} operations and {param_count} reusable parameters.")
 
-        # 5. Save extracted metadata
-        utilize_path = save_metadata(service_name, operations, service_data_dir)
+        # 5. Create metadata.yml
+        now_utc = datetime.now(timezone.utc).isoformat()
+        metadata_content = {
+            "format_version": 2,
+            "first_accessed": now_utc,
+            "api_reference": url,
+            "api_hash": api_hash,
+            "operation_count": op_count,
+            "reusable_parameter_count": param_count,
+            "notes": ""
+        }
+        metadata_yml_path = service_data_dir / "metadata.yml"
+        metadata_yml_path.write_text(yaml.dump(metadata_content, indent=2), encoding="utf-8")
+        logging.info(f"Saved service metadata to {metadata_yml_path}")
+
+        # 6. Save extracted metadata
+        utilize_path = save_metadata(service_name, processed_data, service_data_dir)
         logging.info(f"Saved 'utilize' metadata to {utilize_path}")
 
-        # 6. Compress metadata
-        logging.info(f"Compressing metadata file: {utilize_path}")
-        compressed_path = compress_metadata(utilize_path)
-        logging.info(f"Compressed metadata saved to {compressed_path}")
+        # 7. Compress metadata (optional)
+        if not no_compress:
+            logging.info(f"Compressing metadata file: {utilize_path}")
+            compress_metadata(utilize_path)
+            logging.info(f"Compressed metadata and deleted intermediate file.")
+            if utilize_path.exists():
+                utilize_path.unlink()
 
     except Exception as e:
         logging.error(f"Failed to process service {service_name}: {e}", exc_info=True)
     finally:
-        # 7. Clean up intermediate and raw files
-        if utilize_path and utilize_path.exists():
-            logging.info(f"Deleting intermediate file: {utilize_path}")
-            utilize_path.unlink()
-        
+        # 8. Clean up raw spec file (optional)
         if not keep_raw_specs and raw_spec_path and raw_spec_path.exists():
             logging.info(f"Deleting raw spec file: {raw_spec_path}")
             raw_spec_path.unlink()
@@ -92,12 +108,20 @@ def main():
         action="store_true",
         help="If set, the original downloaded OpenAPI spec files will not be deleted after processing."
     )
+    parser.add_argument(
+        "--no-compress",
+        action="store_true",
+        help="If set, the final utilize.json file will not be compressed."
+    )
     args = parser.parse_args()
 
     logging.info("Starting data population process...")
     if args.keep_raw_specs:
         logging.info("Raw specification files will be kept.")
+    if args.no_compress:
+        logging.info("Compression is disabled.")
 
+    # Ensure the root data directory exists
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     # Load sources
@@ -115,7 +139,7 @@ def main():
 
     for service_name, url in all_sources.items():
         service_data_dir = DATA_DIR / service_name
-        process_service(service_name, url, service_data_dir, args.keep_raw_specs)
+        process_service(service_name, url, service_data_dir, args.keep_raw_specs, args.no_compress)
 
     logging.info("Data population process finished.")
 

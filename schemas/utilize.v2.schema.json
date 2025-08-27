@@ -1,0 +1,84 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Mapigen Utilize V2 (Comprehensive) Schema",
+    "description": "A comprehensive, lossless schema for the v2 utilize.json format, compliant with JSON Schema Draft 2020-12.",
+    "type": "object",
+    "$defs": {
+        "parameter": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "in": {"type": "string", "enum": ["query", "header", "path", "cookie"]},
+                "description": {"type": "string"},
+                "required": {"type": "boolean"},
+                "deprecated": {"type": "boolean"},
+                "type": {"type": "string"},
+                "format": {"type": "string"},
+                "default": {},
+                "enum": {"type": "array"},
+                "pattern": {"type": "string"},
+                "minLength": {"type": "integer"},
+                "maxLength": {"type": "integer"},
+                "minimum": {"type": "number"},
+                "maximum": {"type": "number"}
+            },
+            "required": ["name", "in", "type"]
+        },
+        "parameter_ref": {
+            "type": "object",
+            "properties": {
+                "$ref": {
+                    "type": "string",
+                    "pattern": "^#/$defs/parameters/.*$"
+                }
+            },
+            "required": ["$ref"]
+        },
+        "operation": {
+            "type": "object",
+            "properties": {
+                "service": {"type": "string"},
+                "path": {"type": "string"},
+                "method": {"type": "string", "enum": ["GET", "PUT", "POST", "DELETE", "OPTIONS", "HEAD", "PATCH", "TRACE"]},
+                "summary": {"type": "string"},
+                "description": {"type": "string"},
+                "deprecated": {"type": "boolean"},
+                "parameters": {
+                    "type": "array",
+                    "items": {
+                        "oneOf": [
+                            {"$ref": "#/$defs/parameter"},
+                            {"$ref": "#/$defs/parameter_ref"}
+                        ]
+                    }
+                }
+            },
+            "required": ["service", "path", "method", "parameters"]
+        }
+    },
+    "properties": {
+        "components": {
+            "type": "object",
+            "properties": {
+                "parameters": {
+                    "type": "object",
+                    "patternProperties": {
+                        "^[a-zA-Z0-9._-]+$": {
+                            "$ref": "#/$defs/parameter"
+                        }
+                    }
+                }
+            },
+            "required": ["parameters"]
+        },
+        "operations": {
+            "type": "object",
+            "patternProperties": {
+                "^[a-zA-Z0-9_./-]+$": {
+                    "$ref": "#/$defs/operation"
+                }
+            }
+        }
+    },
+    "required": ["components", "operations"]
+}
