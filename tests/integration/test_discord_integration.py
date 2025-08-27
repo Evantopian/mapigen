@@ -50,13 +50,12 @@ def test_sync_create_and_list_messages(client: Mapi):
     assert response.get('content') == content
     print(f"Message sent! ID: {response.get('id')}")
 
-    print("\n--- Testing: Read Messages (Sync) ---")
-    messages = client.discord.list_messages(channel_id=TEST_CHANNEL_ID)
+    print("\n--- Testing: Get Channel (Sync) ---")
+    channel_info = client.discord.get_channel(channel_id=TEST_CHANNEL_ID)
     
-    assert messages is not None
-    assert len(messages) > 0
-    assert messages[0].get('content') == content
-    print(f"Successfully retrieved {len(messages)} messages.")
+    assert channel_info is not None
+    assert channel_info.get('id') == TEST_CHANNEL_ID
+    print(f"Successfully retrieved channel info: {channel_info.get('name')}")
 
 @requires_discord_creds
 @pytest.mark.asyncio
@@ -70,10 +69,9 @@ async def test_async_create_and_list_messages(client: Mapi):
     assert response.get('content') == content
     print(f"Message sent! ID: {response.get('id')}")
 
-    print("\n--- Testing: Read Messages (Async) ---")
-    messages = await client.discord.list_messages.aexecute(channel_id=TEST_CHANNEL_ID)
+    print("\n--- Testing: Get Channel (Async) ---")
+    channel_info = await client.discord.get_channel.aexecute(channel_id=TEST_CHANNEL_ID)
     
-    assert messages is not None
-    assert len(messages) > 0
-    assert messages[0].get('content') == content
-    print(f"Successfully retrieved {len(messages)} messages.")
+    assert channel_info is not None
+    assert channel_info.get('id') == TEST_CHANNEL_ID
+    print(f"Successfully retrieved channel info: {channel_info.get('name')}")

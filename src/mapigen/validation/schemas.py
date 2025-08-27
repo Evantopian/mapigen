@@ -48,13 +48,17 @@ def build_and_validate_parameters(
         if not param_name:
             continue
 
-        # JSON Schema doesn't have a concept of 'in', so we only validate the data itself.
         # We can extract the schema-related keywords.
-        param_schema = {
-            key: value
-            for key, value in param_details.items()
-            if key not in ["name", "in", "required"]
-        }
+        param_schema = {}
+        for key, value in param_details.items():
+            if key in ["name", "in", "required"]:
+                continue
+            # 'any' is not a valid JSON Schema type. Omitting the type keyword
+            # allows any type, which is the desired behavior.
+            if key == 'type' and value == 'any':
+                continue
+            param_schema[key] = value
+        
         schema_properties[param_name] = param_schema
 
         if param_details.get("required", False):

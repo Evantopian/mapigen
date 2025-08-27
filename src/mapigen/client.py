@@ -122,13 +122,16 @@ class Mapi:
         config = self._prepare_request_config(service, operation, **kwargs)
         if not config:
             return None
-        return self.http_client.request(
-            method=config.method,
-            url=config.url,
-            params=config.params,
-            headers=config.headers,
-            json=config.json_body,
-        )
+        request_kwargs = {
+            "method": config.method,
+            "url": config.url,
+            "params": config.params,
+            "headers": config.headers,
+        }
+        if config.method != 'GET':
+            request_kwargs["json"] = config.json_body
+
+        return self.http_client.request(**request_kwargs)
 
     async def aexecute(
         self, service: str, operation: str, **kwargs: Any
@@ -137,10 +140,13 @@ class Mapi:
         config = self._prepare_request_config(service, operation, **kwargs)
         if not config:
             return None
-        return await self.http_client.arequest(
-            method=config.method,
-            url=config.url,
-            params=config.params,
-            headers=config.headers,
-            json=config.json_body,
-        )
+        request_kwargs = {
+            "method": config.method,
+            "url": config.url,
+            "params": config.params,
+            "headers": config.headers,
+        }
+        if config.method != 'GET':
+            request_kwargs["json"] = config.json_body
+
+        return await self.http_client.arequest(**request_kwargs)
