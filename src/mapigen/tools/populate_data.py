@@ -118,107 +118,92 @@ def main():
     for service_name, url in all_sources.items():
         service_data_dir: Path = DATA_DIR / service_name
         metadata_yml_path: Path = service_data_dir / "metadata.yml"
-        
-
         utilize_json_path = service_data_dir / f"{service_name}.utilize.json"
         utilize_lz4_path = service_data_dir / f"{service_name}.utilize.json.lz4"
 
-        if args.cache and metadata_yml_path.exists() and (utilize_json_path.exists() or utilize_lz4_path.exists()):
-            logging.info(f"[CACHED] Skipping service: {service_name}")
-            if metadata_yml_path.exists():
-                try:
-                    metadata = yaml.safe_load(metadata_yml_path.read_text())
-                    auth_info = {
-                        "auth_types": metadata.get("auth_types", []),
-                        "primary_auth": metadata.get("primary_auth", "none")
-                    }
-                    # Apply override to cached data as well
-                    if service_name in overrides and "auth" in overrides[service_name]:
-                        logging.info(f"Applying auth override for {service_name} from cache.")
-                        auth_info.update(overrides[service_name]["auth"])
+        is_cached = args.cache and metadata_yml_path.exists() and (utilize_json_path.exists() or utilize_lz4_path.exists())
 
-                    service_registry[service_name] = {
-                        "path": f"data/{service_name}",
-                        "operation_count": metadata.get("operation_count", 0),
-                        "auth_types": auth_info["auth_types"],
-                        "primary_auth": auth_info["primary_auth"],
-                        "popularity_rank": metadata.get("popularity_rank", 999)
-                    }
-                except (IOError, yaml.YAMLError) as e:
-                    logging.error(f"Could not read cached metadata for {service_name}: {e}")
-            continue
+        original_auth_info = {}
+        
+        if is_cached:
+            logging.info(f"[CACHED] Skipping service processing for: {service_name}")
+            metadata = yaml.safe_load(metadata_yml_path.read_text())
+            original_auth_info = {
+                "auth_types": metadata.get("auth_types", []),
+                "primary_auth": metadata.get("primary_auth", "none")
+            }
+        else:
+            raw_spec_path: Optional[Path] = next(service_data_dir.glob(f"{service_name}.openapi.*"), None)
+            if service_data_dir.exists() and not raw_spec_path:
+                shutil.rmtree(service_data_dir)
+            service_data_dir.mkdir(parents=True, exist_ok=True)
 
-        raw_spec_path: Optional[Path] = next(service_data_dir.glob(f"{service_name}.openapi.*"), None)
-        if service_data_dir.exists() and not raw_spec_path:
-            shutil.rmtree(service_data_dir)
-        service_data_dir.mkdir(parents=True, exist_ok=True)
+            logging.info(f"--- Processing: {service_name} ---")
+            result: dict[str, Any] = process_service(service_name, url, service_data_dir)
 
-        logging.info(f"--- Processing: {service_name} ---")
-        result: dict[str, Any] = process_service(service_name, url, service_data_dir)
+            if result["status"] == "success":
+                original_auth_info = result["auth_info"]
+            
+                first_accessed_time: str = datetime.now(timezone.utc).isoformat()
+                if metadata_yml_path.exists():
+                    try:
+                        existing_metadata: dict[str, Any] = yaml.safe_load(metadata_yml_path.read_text())
+                        first_accessed_time = existing_metadata.get("first_accessed", first_accessed_time)
+                    except (IOError, yaml.YAMLError):
+                        pass
 
-        first_accessed_time: str = datetime.now(timezone.utc).isoformat()
-        if metadata_yml_path.exists():
-            try:
-                existing_metadata: dict[str, Any] = yaml.safe_load(metadata_yml_path.read_text())
-                first_accessed_time = existing_metadata.get("first_accessed", first_accessed_time)
-            except (IOError, yaml.YAMLError):
-                pass
+                final_auth_info_for_meta = original_auth_info.copy()
+                if service_name in overrides and "auth" in overrides[service_name]:
+                    final_auth_info_for_meta.update(overrides[service_name]["auth"])
 
-        metadata_content: dict[str, Any] = {
-            "format_version": 2,
-            "first_accessed": first_accessed_time,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-            "api_reference": url,
-            "status": result["status"],
-        }
+                rank = get_rank(service_name)
+                metadata_content: dict[str, Any] = {
+                    "format_version": 2,
+                    "first_accessed": first_accessed_time,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                    "api_reference": url,
+                    "status": result["status"],
+                    "api_hash": result["api_hash"],
+                    "operation_count": result["processed_op_count"],
+                    "reusable_parameter_count": result["reusable_param_count"],
+                    "coverage": result["coverage"],
+                    "auth_types": final_auth_info_for_meta["auth_types"],
+                    "primary_auth": final_auth_info_for_meta["primary_auth"],
+                    "popularity_rank": rank,
+                }
+                metadata_yml_path.write_text(yaml.dump(metadata_content, indent=2, sort_keys=False), encoding="utf-8")
 
-        if result["status"] == "success":
-            original_auth_info = result["auth_info"]
-            final_auth_info = original_auth_info.copy()
+                utilize_path: Path = save_metadata(service_name, result["processed_data"], service_data_dir)
+                if rank >= args.rank and not args.no_compress:
+                    logging.info(f"Compressing {service_name} data (rank {rank} >= threshold {args.rank}).")
+                    compress_metadata(utilize_path)
+                    if utilize_path.exists():
+                        utilize_path.unlink()
+            
+            logging.info(f"Finished processing: {service_name} with status: {result.get('status', 'unknown')}")
 
-            # Check if an override is needed and/or applied
-            if not original_auth_info["auth_types"]:
+        # --- Notice Logic (runs for all services) ---
+        if original_auth_info:
+            if not original_auth_info.get("auth_types"):
                 if service_name in overrides and "auth" in overrides[service_name]:
                     services_with_active_override.append(service_name)
-                    logging.info(f"Auth override is active for {service_name}.")
                 else:
                     services_requiring_override_fix.append(service_name)
-                    logging.warning(f"{service_name} has no auth types and needs an override.")
 
-            # Apply override
+        # --- Registry Population (runs for all services) ---
+        if metadata_yml_path.exists():
+            final_auth_info_for_registry = original_auth_info.copy()
             if service_name in overrides and "auth" in overrides[service_name]:
-                logging.info(f"Applying auth override for {service_name}.")
-                final_auth_info.update(overrides[service_name]["auth"])
-
-            rank = get_rank(service_name)
-            metadata_content.update({
-                "api_hash": result["api_hash"],
-                "operation_count": result["processed_op_count"],
-                "reusable_parameter_count": result["reusable_param_count"],
-                "coverage": result["coverage"],
-                "auth_types": final_auth_info["auth_types"],
-                "primary_auth": final_auth_info["primary_auth"],
-                "popularity_rank": rank,
-            })
+                final_auth_info_for_registry.update(overrides[service_name]["auth"])
             
+            metadata = yaml.safe_load(metadata_yml_path.read_text())
             service_registry[service_name] = {
                 "path": f"data/{service_name}",
-                "operation_count": result["processed_op_count"],
-                "auth_types": final_auth_info["auth_types"],
-                "primary_auth": final_auth_info["primary_auth"],
-                "popularity_rank": rank
+                "operation_count": metadata.get("operation_count", 0),
+                "auth_types": final_auth_info_for_registry["auth_types"],
+                "primary_auth": final_auth_info_for_registry["primary_auth"],
+                "popularity_rank": metadata.get("popularity_rank", 999)
             }
-
-            utilize_path: Path = save_metadata(service_name, result["processed_data"], service_data_dir)
-            # Compress based on rank, unless --no-compress is used
-            if rank >= args.rank and not args.no_compress:
-                logging.info(f"Compressing {service_name} data (rank {rank} >= threshold {args.rank}).")
-                compress_metadata(utilize_path)
-                if utilize_path.exists():
-                    utilize_path.unlink()
-
-        metadata_yml_path.write_text(yaml.dump(metadata_content, indent=2, sort_keys=False), encoding="utf-8")
-        logging.info(f"Finished processing: {service_name} with status: {result['status']}")
 
     if service_registry:
         logging.info(f"Writing global service registry to {SERVICES_JSON_PATH}...")

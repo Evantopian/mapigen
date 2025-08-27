@@ -5,10 +5,9 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Optional
 
-import requests
-
 from mapigen.auth.providers import AuthProvider
 from mapigen.discovery import services as service_discovery
+from mapigen.http.sync_client import SyncHttpClient
 from mapigen.proxy import ServiceProxy
 from mapigen.tools.utils import load_metadata
 
@@ -27,6 +26,7 @@ class Mapi:
         self._service_cache: dict[str, dict[str, Any]] = {}
         self.base_url = base_url
         self.auth_provider = auth_provider
+        self.http_client = SyncHttpClient()
         # Load the list of available services for the proxy
         self._services = service_discovery.list_services()
 
@@ -137,17 +137,10 @@ class Mapi:
         full_url: str = f"{base_url.rstrip('/') if base_url else ''}{final_path}"
 
         # Execute the request
-        try:
-            logging.info(f"Executing {op_details.get('method')} request to {full_url}")
-            response = requests.request(
-                method=op_details.get("method", "GET"),
-                url=full_url,
-                params=query_params,
-                headers=headers,
-                json=body_params,
-            )
-            response.raise_for_status()  # Raise an exception for bad status codes
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            logging.error(f"HTTP Request failed: {e}")
-            return None
+        return self.http_client.request(
+            method=op_details["method"],
+            url=full_url,
+            params=query_params,
+            headers=headers,
+            json_body=body_params,
+        )
