@@ -27,13 +27,29 @@ REGISTRY_DIR = ROOT_DIR / "src" / "mapigen" / "registry"
 CUSTOM_SOURCES_PATH = REGISTRY_DIR / "custom_sources.json"
 GITHUB_SOURCES_PATH = REGISTRY_DIR / "github_sources.json"
 
-def process_service(service_name, url, service_data_dir, keep_raw_specs, no_compress):
+def process_service(service_name, url, service_data_dir, keep_raw_specs, no_compress, use_cache):
     """
     Fetches, normalizes, and extracts metadata for a single service.
     """
+    metadata_yml_path = service_data_dir / "metadata.yml"
+    update_yml_path = service_data_dir / "update.yml"
+
+    if use_cache and metadata_yml_path.exists() and not update_yml_path.exists():
+        logging.info(f"[CACHED] Skipping service: {service_name}")
+        return
+
     raw_spec_path = None
     utilize_path = None
     try:
+        # Preserve first_accessed timestamp if it exists
+        first_accessed_time = datetime.now(timezone.utc).isoformat()
+        if metadata_yml_path.exists():
+            try:
+                existing_metadata = yaml.safe_load(metadata_yml_path.read_text())
+                first_accessed_time = existing_metadata.get("first_accessed", first_accessed_time)
+            except (IOError, yaml.YAMLError):
+                logging.warning(f"Could not read existing metadata for {service_name}. A new file will be created.")
+
         # Clean the specific service directory before processing
         logging.info(f"Cleaning service directory: {service_data_dir}")
         if service_data_dir.exists():
@@ -67,14 +83,14 @@ def process_service(service_name, url, service_data_dir, keep_raw_specs, no_comp
         now_utc = datetime.now(timezone.utc).isoformat()
         metadata_content = {
             "format_version": 2,
-            "first_accessed": now_utc,
+            "first_accessed": first_accessed_time,
+            "updated_at": now_utc,
             "api_reference": url,
             "api_hash": api_hash,
             "operation_count": op_count,
             "reusable_parameter_count": param_count,
             "notes": ""
         }
-        metadata_yml_path = service_data_dir / "metadata.yml"
         metadata_yml_path.write_text(yaml.dump(metadata_content, indent=2), encoding="utf-8")
         logging.info(f"Saved service metadata to {metadata_yml_path}")
 
@@ -113,6 +129,11 @@ def main():
         action="store_true",
         help="If set, the final utilize.json file will not be compressed."
     )
+    parser.add_argument(
+        "--cache",
+        action="store_true",
+        help="If set, skip processing services if metadata already exists."
+    )
     args = parser.parse_args()
 
     logging.info("Starting data population process...")
@@ -120,6 +141,8 @@ def main():
         logging.info("Raw specification files will be kept.")
     if args.no_compress:
         logging.info("Compression is disabled.")
+    if args.cache:
+        logging.info("Cache is enabled.")
 
     # Ensure the root data directory exists
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -139,7 +162,7 @@ def main():
 
     for service_name, url in all_sources.items():
         service_data_dir = DATA_DIR / service_name
-        process_service(service_name, url, service_data_dir, args.keep_raw_specs, args.no_compress)
+        process_service(service_name, url, service_data_dir, args.keep_raw_specs, args.no_compress, args.cache)
 
     logging.info("Data population process finished.")
 
