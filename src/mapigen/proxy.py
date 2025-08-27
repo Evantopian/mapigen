@@ -1,9 +1,10 @@
 """Dynamic proxy for enabling client.service.operation() syntax."""
 from __future__ import annotations
-from typing import TYPE_CHECKING, Any, Generator
+from typing import TYPE_CHECKING, Any, Generator, Dict, Union
 
 if TYPE_CHECKING:
     from mapigen.client import Mapi
+    from mapigen.client.config import ResponseMetadata
 
 
 class OperationProxy:
@@ -14,18 +15,20 @@ class OperationProxy:
         self._service_name = service_name
         self._operation_name = operation_name
 
-    def __call__(self, **kwargs: Any) -> Any:
+    def __call__(self, include_metadata: bool = False, **kwargs: Any) -> Union[Dict[str, Any], Dict[str, Union[Dict[str, Any], ResponseMetadata]]]:
         """Executes the API call synchronously."""
-        return self._client.execute(self._service_name, self._operation_name, **kwargs)
+        return self._client.execute(
+            self._service_name, self._operation_name, include_metadata=include_metadata, **kwargs
+        )
 
-    def __await__(self) -> Generator[Any, None, Any]:
+    def __await__(self) -> Generator[Any, None, Union[Dict[str, Any], Dict[str, Union[Dict[str, Any], ResponseMetadata]]]]:
         """Allows awaiting the operation directly for parameter-less calls."""
         return self._client.aexecute(self._service_name, self._operation_name).__await__()
 
-    async def aexecute(self, **kwargs: Any) -> Any:
+    async def aexecute(self, include_metadata: bool = False, **kwargs: Any) -> Union[Dict[str, Any], Dict[str, Union[Dict[str, Any], ResponseMetadata]]]:
         """Executes the API call asynchronously with parameters."""
         return await self._client.aexecute(
-            self._service_name, self._operation_name, **kwargs
+            self._service_name, self._operation_name, include_metadata=include_metadata, **kwargs
         )
 
 

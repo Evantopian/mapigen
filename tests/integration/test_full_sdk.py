@@ -5,7 +5,9 @@ from unittest.mock import patch, MagicMock
 # Add src to path to allow importing mapigen
 sys.path.append(str(Path(__file__).resolve().parent.parent / 'src'))
 
+import pytest
 from mapigen import Mapi
+from mapigen.client.exceptions import RequestError
 
 
 
@@ -79,27 +81,23 @@ def test_native_auth(mock_request: MagicMock):
 
 
 def test_validation_missing_required():
-    """Tests that a call with a missing required parameter fails validation."""
+    """Tests that a call with a missing required parameter raises a RequestError."""
     print("\n--- Running Test: test_validation_missing_required ---")
     client = Mapi()
     # This call should fail because 'id' is required.
-    result = client.pokeapi.api_v2_pokemon_retrieve()
-    if result is None:
-        print("SUCCESS: Call with missing required parameter correctly failed validation.")
-    else:
-        print(f"FAILURE: Call with missing required parameter did not fail. Result: {result}")
+    with pytest.raises(RequestError) as e:
+        client.pokeapi.api_v2_pokemon_retrieve()
+    print(f"SUCCESS: Caught expected RequestError: {e.value}")
 
 
 def test_validation_unexpected_param():
-    """Tests that a call with an unexpected parameter fails validation."""
+    """Tests that a call with an unexpected parameter raises a RequestError."""
     print("\n--- Running Test: test_validation_unexpected_param ---")
     client = Mapi()
     # This call should fail because 'foo' is not a valid parameter.
-    result = client.pokeapi.api_v2_pokemon_retrieve(id='ditto', foo='bar')
-    if result is None:
-        print("SUCCESS: Call with unexpected parameter correctly failed validation.")
-    else:
-        print(f"FAILURE: Call with unexpected parameter did not fail. Result: {result}")
+    with pytest.raises(RequestError) as e:
+        client.pokeapi.api_v2_pokemon_retrieve(id='ditto', foo='bar')
+    print(f"SUCCESS: Caught expected RequestError: {e.value}")
 
 
 
