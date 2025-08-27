@@ -209,3 +209,5 @@ __marimo__/
 
 *.lz4
 *metadata.yml
+*openapi.yml
+*openapi.json

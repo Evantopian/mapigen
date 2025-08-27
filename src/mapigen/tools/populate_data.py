@@ -33,6 +33,7 @@ def process_service(service_name: str, url: str, service_data_dir: Path) -> Dict
         raw_content = raw_spec_path.read_bytes()
         api_hash = hashlib.sha256(raw_content).hexdigest()
         raw_spec = load_spec(raw_spec_path)
+        servers = raw_spec.get("servers", [])
         raw_op_count = count_openapi_operations(raw_spec)
         notes.append(f"Found {raw_op_count} operations in raw spec.")
 
@@ -41,6 +42,7 @@ def process_service(service_name: str, url: str, service_data_dir: Path) -> Dict
 
         notes.append("Extracting lightweight 'utilize' metadata...")
         processed_data = extract_operations_and_components(service_name, normalized_spec)
+        processed_data['servers'] = servers
         op_count = len(processed_data['operations'])
         param_count = len(processed_data['components']['parameters'])
         notes.append(f"Extracted {op_count} operations and {param_count} reusable parameters.")
@@ -50,6 +52,7 @@ def process_service(service_name: str, url: str, service_data_dir: Path) -> Dict
         return {
             "status": "success",
             "api_hash": api_hash,
+            "servers": servers,
             "processed_op_count": op_count,
             "reusable_param_count": param_count,
             "coverage": coverage,

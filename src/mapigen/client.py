@@ -1,63 +1,65 @@
 from pathlib import Path
 import logging
 from functools import lru_cache
+from typing import Any, Dict, Optional
+import requests
 
-from .tools.utils import load_metadata
+from mapigen.tools.utils import load_metadata
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-class ServiceMetadata:
-    """Loads and holds the metadata for a single service."""
-    def __init__(self, service_name: str):
-        self.service_name = service_name
-        self._data = self._load_data()
-        self.operations = self._data.get("operations", {})
-        self.components = self._data.get("components", {})
+class MapigenClient:
+    """A metadata-driven API client."""
 
-    @lru_cache(maxsize=None)
-    def _load_data(self) -> dict:
-        """Loads the metadata from the compressed file."""
+    def __init__(self, base_url: Optional[str] = None):
+        self._service_cache: Dict[str, Dict[str, Any]] = {}
+        self.base_url = base_url
+
+    @lru_cache(maxsize=128)
+    def _load_service_data(self, service_name: str) -> Dict[str, Any]:
+        """Loads the metadata for a single service from its compressed file."""
         data_dir = Path(__file__).parent / "data"
-        service_path = data_dir / self.service_name / f"{self.service_name}.utilize.json.lz4"
+        service_path = data_dir / service_name / f"{service_name}.utilize.json.lz4"
         if not service_path.exists():
-            raise AttributeError(f"Service '{self.service_name}' not found. Please ensure data is populated.")
+            raise FileNotFoundError(f"Service '{service_name}' not found. Please ensure data is populated.")
         return load_metadata(service_path)
 
-    def get_operation(self, operation_id: str) -> dict:
-        """Gets the details for a single operation."""
-        return self.operations.get(operation_id)
+    def execute(self, service: str, operation: str, **kwargs: Any) -> Optional[Dict[str, Any]]:
+        """Executes a generic API operation."""
+        try:
+            service_data = self._load_service_data(service)
+        except FileNotFoundError as e:
+            logging.error(f"Could not load service data for '{service}'. {e}")
+            return None
 
-    def resolve_parameter(self, param: dict) -> dict:
-        """Resolves a parameter, following a $ref if necessary."""
-        if "$ref" in param:
-            ref_path = param["$ref"]
-            component_name = ref_path.split("/")[-1]
-            return self.components.get("parameters", {}).get(component_name, {})
-        return param
+        op_details = service_data.get("operations", {}).get(operation)
+        if not op_details:
+            logging.error(f"Operation '{operation}' not found in service '{service}'.")
+            return None
 
-class CallableOperation:
-    """Represents a single, callable API operation."""
-    def __init__(self, metadata: ServiceMetadata, operation_id: str):
-        self.metadata = metadata
-        self.operation_id = operation_id
-        self.op_details = self.metadata.get_operation(operation_id)
-        if not self.op_details:
-            raise AttributeError(f"Operation '{self.operation_id}' not found in service '{self.metadata.service_name}'.")
+        # Determine the base URL
+        base_url = self.base_url
+        if not base_url:
+            servers = service_data.get("servers", [])
+            if not servers:
+                logging.error(f"No server URL configured for service '{service}' and no base_url provided.")
+                return None
+            base_url = servers[0].get("url")
 
-    def __call__(self, **kwargs):
-        """Executes the API call."""
-        logging.info(f"--- Calling {self.metadata.service_name}.{self.operation_id} ---")
-        
         path_params = {}
         query_params = {}
         body_params = {}
 
-        # Resolve and sort parameters based on user input
-        for param_ref in self.op_details.get("parameters", []):
-            param_details = self.metadata.resolve_parameter(param_ref)
-            param_name = param_details.get("name")
+        for param_ref in op_details.get("parameters", []):
+            if "$ref" in param_ref:
+                ref_path = param_ref["$ref"]
+                component_name = ref_path.split("/")[-1]
+                param_details = service_data.get("components", {}).get("parameters", {}).get(component_name, {})
+            else:
+                param_details = param_ref
 
+            param_name = param_details.get("name")
             if param_name in kwargs:
                 value = kwargs[param_name]
                 param_in = param_details.get("in")
@@ -67,33 +69,23 @@ class CallableOperation:
                     query_params[param_name] = value
                 elif param_in == "body":
                     body_params[param_name] = value
-        
-        # Construct the URL
-        path_template = self.op_details.get("path", "")
+
+        # Construct the full URL
+        path_template = op_details.get("path", "")
         final_path = path_template.format(**path_params)
+        full_url = f"{base_url.rstrip('/')}{final_path}"
 
-        # For now, just print the details of the would-be request
-        print(f"Method: {self.op_details.get('method')}")
-        print(f"URL Path: {final_path}")
-        if query_params:
-            print(f"Query Params: {query_params}")
-        if body_params:
-            print(f"Body Params: {body_params}")
-        print("-----------------------------------------------------")
-
-class ServiceProxy:
-    """A proxy object that provides access to a service's operations."""
-    def __init__(self, service_name: str):
-        self.service_name = service_name
-        self.metadata = ServiceMetadata(service_name)
-
-    def __getattr__(self, name: str) -> CallableOperation:
-        # Replace dashes with underscores for Python-friendly names
-        operation_id = name.replace("_", "-")
-        return CallableOperation(self.metadata, operation_id)
-
-class MapigenClient:
-    """A dynamic API client generated from metadata."""
-    @lru_cache(maxsize=32)
-    def __getattr__(self, name: str) -> ServiceProxy:
-        return ServiceProxy(name)
+        # Execute the request
+        try:
+            logging.info(f"Executing {op_details.get('method')} request to {full_url}")
+            response = requests.request(
+                method=op_details.get("method", "GET"),
+                url=full_url,
+                params=query_params,
+                json=body_params
+            )
+            response.raise_for_status()  # Raise an exception for bad status codes
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            logging.error(f"HTTP Request failed: {e}")
+            return None
