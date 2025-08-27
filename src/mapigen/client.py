@@ -1,11 +1,11 @@
 from __future__ import annotations
 import logging
 from functools import lru_cache
-from typing import Any, Optional
+from typing import Any, Optional, NamedTuple, Dict
 
 from mapigen.auth.providers import AuthProvider
 from mapigen.discovery import DiscoveryClient
-from mapigen.http.sync_client import SyncHttpClient
+from mapigen.http.transport import HttpTransport
 from mapigen.proxy import ServiceProxy
 from mapigen.cache.storage import load_service_from_disk
 from mapigen.validation.schemas import build_and_validate_parameters
@@ -14,6 +14,13 @@ from jsonschema.exceptions import ValidationError
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
+class RequestConfig(NamedTuple):
+    """A container for the prepared request details."""
+    method: str
+    url: str
+    params: Dict[str, Any]
+    headers: Dict[str, Any]
+    json_body: Dict[str, Any]
 
 class Mapi:
     """A metadata-driven API client."""
@@ -22,23 +29,21 @@ class Mapi:
         self,
         base_url: Optional[str] = None,
         auth_provider: Optional[AuthProvider] = None,
-    ):
-        self._service_cache: dict[str, dict[str, Any]] = {}
+        **transport_kwargs: Any,
+    ) -> None:
+        self._service_cache: Dict[str, Dict[str, Any]] = {}
         self.base_url = base_url
         self.auth_provider = auth_provider
-        self.http_client = SyncHttpClient()
+        self.http_client = HttpTransport(**transport_kwargs)
         self.discovery = DiscoveryClient()
-        # Load the list of available services for the proxy
         self._services = self.discovery.list_services()
 
     def __getattribute__(self, name: str) -> Any:
         """Overrides attribute access to enable dynamic service proxies."""
-        # Use a try/except block to avoid RecursionError when accessing self._services
         try:
             if name in object.__getattribute__(self, "_services"):
                 return ServiceProxy(self, name)
         except AttributeError:
-            # This can happen during initialization before _services is set
             pass
         return object.__getattribute__(self, name)
 
@@ -51,21 +56,20 @@ class Mapi:
         return Mapi(base_url=self.base_url, auth_provider=provider)
 
     @lru_cache(maxsize=128)
-    def _load_service_data(self, service_name: str) -> dict[str, Any]:
+    def _load_service_data(self, service_name: str) -> Dict[str, Any]:
         """Loads the metadata for a single service from the cache/disk."""
         return load_service_from_disk(service_name)
 
-    def execute(
+    def _prepare_request_config(
         self, service: str, operation: str, **kwargs: Any
-    ) -> Optional[dict[str, Any]]:
-        """Executes a generic API operation."""
+    ) -> Optional[RequestConfig]:
+        """Prepares the configuration for an API request."""
         try:
             service_data = self._load_service_data(service)
         except FileNotFoundError as e:
             logging.error(f"Could not load service data for '{service}'. {e}")
             return None
 
-        # Validate parameters before proceeding
         try:
             build_and_validate_parameters(service_data, operation, kwargs)
         except ValidationError as e:
@@ -75,51 +79,39 @@ class Mapi:
             logging.error(f"Could not validate parameters: {e}")
             return None
 
-        op_details: Optional[dict[str, Any]] = service_data.get("operations", {}).get(
-            operation
-        )
+        op_details = service_data.get("operations", {}).get(operation)
         if not op_details:
             logging.error(f"Operation '{operation}' not found in service '{service}'.")
             return None
 
-        # Determine the base URL
-        base_url: Optional[str] = self.base_url
+        base_url = self.base_url or next((s.get("url") for s in service_data.get("servers", [])), None)
         if not base_url:
-            servers: list[dict[str, Any]] = service_data.get("servers", [])
-            if not servers:
-                logging.error(
-                    f"No server URL configured for service '{service}' and no base_url provided."
-                )
-                return None
-            base_url = servers[0].get("url")
+            logging.error(f"No server URL found for service '{service}'.")
+            return None
 
-        path_params: dict[str, Any] = {}
-        query_params: dict[str, Any] = {}
-        body_params: dict[str, Any] = {}
-        headers: dict[str, str] = {}
-
-        # Apply authentication if a provider is set
+        path_params: Dict[str, Any] = {}
+        query_params: Dict[str, Any] = {}
+        body_params: Dict[str, Any] = {}
+        headers: Dict[str, Any] = {}
+        
         if self.auth_provider:
-            headers.update(self.auth_provider.get_auth_headers())
-            query_params.update(self.auth_provider.get_auth_params())
+            auth_headers = self.auth_provider.get_auth_headers()
+            auth_params = self.auth_provider.get_auth_params()
+            # Use explicit type annotations and proper dict methods
+            headers.update(auth_headers)  # type: ignore[arg-type]
+            query_params.update(auth_params)  # type: ignore[arg-type]
 
         for param_ref in op_details.get("parameters", []):
-            param_details: dict[str, Any]
+            param_details = param_ref
             if "$ref" in param_ref:
-                ref_path: str = param_ref["$ref"]
-                component_name: str = ref_path.split("/")[-1]
-                param_details = (
-                    service_data.get("components", {})
-                    .get("parameters", {})
-                    .get(component_name, {})
-                )
-            else:
-                param_details = param_ref
+                ref_path = param_ref["$ref"]
+                component_name = ref_path.split("/")[-1]
+                param_details = service_data.get("components", {}).get("parameters", {}).get(component_name, {})
 
-            param_name: Optional[str] = param_details.get("name")
+            param_name = param_details.get("name")
             if param_name in kwargs:
-                value: Any = kwargs[param_name]
-                param_in: Optional[str] = param_details.get("in")
+                value = kwargs[param_name]
+                param_in = param_details.get("in")
                 if param_in == "path":
                     path_params[param_name] = value
                 elif param_in == "query":
@@ -127,16 +119,43 @@ class Mapi:
                 elif param_in == "body":
                     body_params[param_name] = value
 
-        # Construct the full URL
-        path_template: str = op_details.get("path", "")
-        final_path: str = path_template.format(**path_params)
-        full_url: str = f"{base_url.rstrip('/') if base_url else ''}{final_path}"
+        final_path = op_details.get("path", "").format(**path_params)
+        full_url = f"{base_url.rstrip('/')}{final_path}"
 
-        # Execute the request
-        return self.http_client.request(
+        return RequestConfig(
             method=op_details["method"],
             url=full_url,
             params=query_params,
             headers=headers,
             json_body=body_params,
+        )
+
+    def execute(
+        self, service: str, operation: str, **kwargs: Any
+    ) -> Optional[Dict[str, Any]]:
+        """Executes a synchronous API operation."""
+        config = self._prepare_request_config(service, operation, **kwargs)
+        if not config:
+            return None
+        return self.http_client.request(
+            method=config.method,
+            url=config.url,
+            params=config.params,
+            headers=config.headers,
+            json=config.json_body,
+        )
+
+    async def aexecute(
+        self, service: str, operation: str, **kwargs: Any
+    ) -> Optional[Dict[str, Any]]:
+        """Executes an asynchronous API operation."""
+        config = self._prepare_request_config(service, operation, **kwargs)
+        if not config:
+            return None
+        return await self.http_client.arequest(
+            method=config.method,
+            url=config.url,
+            params=config.params,
+            headers=config.headers,
+            json=config.json_body,
         )
