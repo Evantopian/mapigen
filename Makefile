@@ -15,6 +15,10 @@ lint: ## Run ruff linter
 
 	ruff check .
 
+test: ## Run pytest
+	pytest
+
+
 populate: ## Populate using cached data
 	$(TOOLS).populate_data --cache
 
