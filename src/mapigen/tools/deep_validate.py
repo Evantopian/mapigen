@@ -1,21 +1,16 @@
 import json
 import sys
-import yaml
 from pathlib import Path
 import logging
-from typing import Any, Dict, List
 
-# Add the project root to the Python path to allow importing from tools
-project_root = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(project_root))
-
-from tools.utils import load_spec, get_params_from_operation, VALID_METHODS
+from mapigen.tools.utils import load_spec, get_params_from_operation, load_metadata
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 def main():
     logging.info("Starting deep validation of all services...")
+    project_root = Path(__file__).resolve().parent.parent.parent.parent
     data_root = project_root / "src" / "mapigen" / "data"
     service_dirs = [d for d in data_root.iterdir() if d.is_dir()]
     overall_status = 0
@@ -25,9 +20,16 @@ def main():
         logging.info(f"--- Validating service: {service_name} ---")
 
         try:
-            utilize_path = service_dir / f"{service_name}.utilize.json"
+            utilize_path_lz4 = service_dir / f"{service_name}.utilize.json.lz4"
+            utilize_path_json = service_dir / f"{service_name}.utilize.json"
+            if utilize_path_lz4.exists():
+                utilize_data = load_metadata(utilize_path_lz4)
+            elif utilize_path_json.exists():
+                utilize_data = json.loads(utilize_path_json.read_text())
+            else:
+                raise FileNotFoundError(f"No utilize file found for {service_name}")
+
             raw_spec_path = next(service_dir.glob(f"{service_name}.openapi.*"))
-            utilize_data = json.loads(utilize_path.read_text())
             raw_spec = load_spec(raw_spec_path)
         except (FileNotFoundError, StopIteration) as e:
             logging.error(f"Could not find necessary files for validation: {e}")

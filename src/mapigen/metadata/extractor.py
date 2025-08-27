@@ -3,12 +3,7 @@ import hashlib
 from pathlib import Path
 from typing import Any, Dict, List
 
-# Add the project root to the Python path to allow importing from tools
-import sys
-project_root = Path(__file__).resolve().parent.parent.parent.parent
-sys.path.insert(0, str(project_root))
-
-from tools.utils import get_params_from_operation, VALID_METHODS
+from mapigen.tools.utils import get_params_from_operation, VALID_METHODS
 
 def get_param_fingerprint(param: Dict[str, Any]) -> str:
     """Creates a stable, hashable fingerprint for a parameter dictionary."""

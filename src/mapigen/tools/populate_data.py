@@ -1,5 +1,4 @@
 import json
-import sys
 import argparse
 import yaml
 import shutil
@@ -9,22 +8,16 @@ import logging
 from datetime import datetime, timezone
 from typing import Dict, Any
 
-# Add the src and tools directories to the Python path
-project_root = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(project_root / "src"))
-sys.path.insert(0, str(project_root / "tools"))
-
 from mapigen.metadata.fetcher import fetch_spec
 from mapigen.metadata.converter import normalize_spec
 from mapigen.metadata.extractor import extract_operations_and_components, save_metadata
-from mapigen.metadata.loader import compress_metadata
-from tools.utils import count_openapi_operations, load_spec
+from mapigen.tools.utils import count_openapi_operations, load_spec, compress_metadata
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Define paths
-ROOT_DIR = Path(__file__).resolve().parent.parent
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
 DATA_DIR = ROOT_DIR / "src" / "mapigen" / "data"
 REGISTRY_DIR = ROOT_DIR / "src" / "mapigen" / "registry"
 CUSTOM_SOURCES_PATH = REGISTRY_DIR / "custom_sources.json"
@@ -107,9 +100,12 @@ def main():
             logging.info(f"[CACHED] Skipping service: {service_name}")
             continue
 
-        if service_data_dir.exists():
+        # Clean and prepare directory
+        # Keep the raw spec if it exists
+        raw_spec_path = next(service_data_dir.glob(f"{service_name}.openapi.*"), None)
+        if service_data_dir.exists() and not raw_spec_path:
             shutil.rmtree(service_data_dir)
-        service_data_dir.mkdir(parents=True)
+        service_data_dir.mkdir(parents=True, exist_ok=True)
 
         logging.info(f"--- Processing: {service_name} ---")
         result = process_service(service_name, url, service_data_dir)
@@ -119,7 +115,8 @@ def main():
             try:
                 existing_metadata = yaml.safe_load(metadata_yml_path.read_text())
                 first_accessed_time = existing_metadata.get("first_accessed", first_accessed_time)
-            except (IOError, yaml.YAMLError): pass
+            except (IOError, yaml.YAMLError):
+                pass
 
         metadata_content = {
             "format_version": 2,
@@ -147,9 +144,7 @@ def main():
         metadata_yml_path.write_text(yaml.dump(metadata_content, indent=2, sort_keys=False), encoding="utf-8")
         logging.info(f"Finished processing: {service_name} with status: {result['status']}")
 
-        if not args.keep_raw_specs:
-            for p in service_data_dir.glob(f"{service_name}.openapi.*"): 
-                p.unlink()
+        
 
     logging.info("Data population process finished.")
 

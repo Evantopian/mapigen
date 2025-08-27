@@ -5,18 +5,13 @@ from pathlib import Path
 import logging
 from typing import List
 
-# Add the src directory to the Python path
-project_root = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(project_root / "src"))
-
-from tools.utils import load_spec, count_openapi_operations
-from mapigen.metadata.loader import load_metadata
+from mapigen.tools.utils import load_spec, count_openapi_operations, load_metadata
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 # Define paths
-ROOT_DIR = Path(__file__).resolve().parent.parent
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
 DATA_DIR = ROOT_DIR / "src" / "mapigen" / "data"
 
 VALID_METHODS = {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
@@ -65,7 +60,7 @@ def main():
 
     for service_dir in service_dirs:
         service_name = service_dir.name
-        logging.info(f"---")
+        logging.info("---")
         logging.info(f"Validating service: {service_name}")
         
         failures = []
@@ -78,7 +73,7 @@ def main():
         else:
             metadata = yaml.safe_load(metadata_path.read_text())
             if metadata.get("format_version") != 2:
-                failures.append(f"Incorrect format_version in metadata.yml (expected 2).")
+                failures.append("Incorrect format_version in metadata.yml (expected 2).")
 
         # Find and load processed file (compressed or uncompressed)
         utilize_path_lz4 = service_dir / f"{service_name}.utilize.json.lz4"
