@@ -207,7 +207,9 @@ marimo/_lsp/
 __marimo__/
 
 
+# api data / compressed files
 *.lz4
 *metadata.yml
 *openapi.yml
 *openapi.json
+*utilize.json

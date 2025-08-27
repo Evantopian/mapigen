@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 import logging
 from functools import lru_cache
 from pathlib import Path
@@ -50,14 +51,23 @@ class Mapi:
 
     @lru_cache(maxsize=128)
     def _load_service_data(self, service_name: str) -> dict[str, Any]:
-        """Loads the metadata for a single service from its compressed file."""
+        """Loads the metadata for a single service, checking for uncompressed or compressed files."""
         data_dir = Path(__file__).parent / "data"
-        service_path = data_dir / service_name / f"{service_name}.utilize.json.lz4"
-        if not service_path.exists():
+        service_dir = data_dir / service_name
+
+        uncompressed_path = service_dir / f"{service_name}.utilize.json"
+        compressed_path = service_dir / f"{service_name}.utilize.json.lz4"
+
+        if uncompressed_path.exists():
+            logging.info(f"Loading uncompressed service data for '{service_name}'.")
+            return json.loads(uncompressed_path.read_text())
+        elif compressed_path.exists():
+            logging.info(f"Loading compressed service data for '{service_name}'.")
+            return load_metadata(compressed_path)
+        else:
             raise FileNotFoundError(
-                f"Service '{service_name}' not found. Please ensure data is populated."
+                f"Service data for '{service_name}' not found. Please ensure data is populated."
             )
-        return load_metadata(service_path)
 
     def execute(
         self, service: str, operation: str, **kwargs: Any

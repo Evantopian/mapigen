@@ -7,7 +7,7 @@
       "api_key"
     ],
     "primary_auth": "basic_auth",
-    "popularity_rank": 999
+    "popularity_rank": 3
   },
   "stripe": {
     "path": "data/stripe",
@@ -17,7 +17,7 @@
       "bearer_token"
     ],
     "primary_auth": "basic_auth",
-    "popularity_rank": 999
+    "popularity_rank": 1
   },
   "github": {
     "path": "data/github",
@@ -27,7 +27,7 @@
       "basic_auth"
     ],
     "primary_auth": "bearer_token",
-    "popularity_rank": 999
+    "popularity_rank": 1
   },
   "discord": {
     "path": "data/discord",
@@ -37,6 +37,6 @@
       "oauth2"
     ],
     "primary_auth": "api_key",
-    "popularity_rank": 999
+    "popularity_rank": 2
   }
 }

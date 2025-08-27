@@ -13,6 +13,7 @@ from mapigen.metadata.fetcher import fetch_spec
 from mapigen.metadata.converter import normalize_spec
 from mapigen.metadata.extractor import extract_operations_and_components, save_metadata
 from mapigen.tools.utils import count_openapi_operations, load_spec, compress_metadata, extract_auth_info
+from mapigen.cache.ranking import get_rank
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -85,6 +86,7 @@ def main():
     parser = argparse.ArgumentParser(description="Fetch and process API specifications.")
     parser.add_argument("--keep-raw-specs", action="store_true", help="Keep original downloaded spec files.")
     parser.add_argument("--no-compress", action="store_true", help="Do not compress the final utilize.json file.")
+    parser.add_argument("--rank", type=int, default=2, help="The rank at which to start compressing service data. Ranks below this value will not be compressed.")
     parser.add_argument("--cache", action="store_true", help="Skip processing services if metadata already exists.")
     args = parser.parse_args()
 
@@ -116,9 +118,12 @@ def main():
     for service_name, url in all_sources.items():
         service_data_dir: Path = DATA_DIR / service_name
         metadata_yml_path: Path = service_data_dir / "metadata.yml"
-        update_yml_path: Path = service_data_dir / "update.yml"
+        
 
-        if args.cache and metadata_yml_path.exists() and not update_yml_path.exists():
+        utilize_json_path = service_data_dir / f"{service_name}.utilize.json"
+        utilize_lz4_path = service_data_dir / f"{service_name}.utilize.json.lz4"
+
+        if args.cache and metadata_yml_path.exists() and (utilize_json_path.exists() or utilize_lz4_path.exists()):
             logging.info(f"[CACHED] Skipping service: {service_name}")
             if metadata_yml_path.exists():
                 try:
@@ -185,13 +190,15 @@ def main():
                 logging.info(f"Applying auth override for {service_name}.")
                 final_auth_info.update(overrides[service_name]["auth"])
 
+            rank = get_rank(service_name)
             metadata_content.update({
                 "api_hash": result["api_hash"],
                 "operation_count": result["processed_op_count"],
                 "reusable_parameter_count": result["reusable_param_count"],
                 "coverage": result["coverage"],
                 "auth_types": final_auth_info["auth_types"],
-                "primary_auth": final_auth_info["primary_auth"]
+                "primary_auth": final_auth_info["primary_auth"],
+                "popularity_rank": rank,
             })
             
             service_registry[service_name] = {
@@ -199,11 +206,13 @@ def main():
                 "operation_count": result["processed_op_count"],
                 "auth_types": final_auth_info["auth_types"],
                 "primary_auth": final_auth_info["primary_auth"],
-                "popularity_rank": 999 # Default rank
+                "popularity_rank": rank
             }
 
             utilize_path: Path = save_metadata(service_name, result["processed_data"], service_data_dir)
-            if not args.no_compress:
+            # Compress based on rank, unless --no-compress is used
+            if rank >= args.rank and not args.no_compress:
+                logging.info(f"Compressing {service_name} data (rank {rank} >= threshold {args.rank}).")
                 compress_metadata(utilize_path)
                 if utilize_path.exists():
                     utilize_path.unlink()

@@ -28,7 +28,11 @@ validate: ## Validate populated data
 	$(TOOLS).validate_data
 	$(TOOLS).deep_validate
 
- 
+clean: ## Remove all generated data files (utilize and notice files)
+	find src/mapigen/data -type f -name "*.utilize.json*" -delete
+	find src/mapigen/registry -type f -name "AUTH_NOTICE.md" -delete
+	find . -type f -name "services.json" -delete
+
 #clean: ## Remove populated data
 #	rm -rf src/mapigen/data
 
