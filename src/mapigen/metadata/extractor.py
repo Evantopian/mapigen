@@ -1,113 +1,33 @@
 import json
+import hashlib
 from pathlib import Path
-import logging
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List
 
-VALID_METHODS = {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
+# Add the project root to the Python path to allow importing from tools
+import sys
+project_root = Path(__file__).resolve().parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
 
-def _resolve_ref(spec: Dict[str, Any], ref: str) -> Dict[str, Any]:
-    """Resolves a $ref pointer in the OpenAPI spec."""
-    parts = ref.strip("#/").split("/")
-    node = spec
-    for part in parts:
-        if part not in node:
-            logging.warning(f"Could not resolve $ref: '{ref}'. Part '{part}' not found.")
-            return {}
-        node = node[part]
-    return node
+from tools.utils import get_params_from_operation, VALID_METHODS
 
-def _extract_parameter_details(param_data: Dict[str, Any]) -> Dict[str, Any]:
-    """Extracts all relevant details from a parameter definition."""
-    details = {}
-    schema = param_data.get("schema", param_data)
-    for key in ["description", "deprecated", "required", "default", "enum", "pattern", "minLength", "maxLength", "minimum", "maximum", "format"]:
-        if key in param_data:
-            details[key] = param_data[key]
-        if key in schema:
-            details[key] = schema[key]
-    details["type"] = schema.get("type", "any")
-    if "required" not in details:
-        details["required"] = param_data.get("required", False)
-    return details
-
-def _unwrap_schema_properties(schema: Dict[str, Any], spec: Dict[str, Any], visited: Set[str]) -> List[Dict[str, Any]]:
-    """Recursively unwraps a schema's properties into a flat list of parameters."""
-    params = []
-    if not isinstance(schema, dict):
-        return params
-
-    if "$ref" in schema:
-        ref_path = schema["$ref"]
-        if ref_path in visited:
-            return [] # Avoid circular recursion
-        visited.add(ref_path)
-        schema = _resolve_ref(spec, ref_path)
-        # Continue unwrapping from the resolved schema
-        return _unwrap_schema_properties(schema, spec, visited)
-
-    # AllOf is used for composition
-    if "allOf" in schema:
-        for sub_schema in schema["allOf"]:
-            params.extend(_unwrap_schema_properties(sub_schema, spec, visited))
-
-    # Properties of the current schema level
-    for name, prop_data in schema.get("properties", {}).items():
-        if not isinstance(prop_data, dict):
-            continue
-        
-        # If a property is itself a reference, unwrap it
-        if "$ref" in prop_data:
-            ref_path = prop_data["$ref"]
-            if ref_path in visited:
-                continue
-            visited.add(ref_path)
-            resolved_prop_schema = _resolve_ref(spec, ref_path)
-            # We assume the unwrapped properties of a nested object should be treated as a single JSON object parameter
-            # This could be enhanced later if needed.
-            param_details = {"name": name, "in": "body"}
-            param_details.update(_extract_parameter_details(prop_data))
-            param_details["type"] = "object" # The nested item is an object
-            params.append(param_details)
-        else:
-            param_details = {"name": name, "in": "body"}
-            param_details.update(_extract_parameter_details(prop_data))
-            params.append(param_details)
-            
-    return params
-
-def get_params_from_operation(op_details: Dict[str, Any], path_params: List[Dict[str, Any]], spec: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Gets all parameters for an operation from its `parameters` array and `requestBody`."""
-    params = []
-    # 1. From the `parameters` array
-    for param_def in path_params + op_details.get("parameters", []):
-        if "$ref" in param_def:
-            param_def = _resolve_ref(spec, param_def["$ref"])
-        if "name" in param_def and "in" in param_def:
-            details = {"name": param_def["name"], "in": param_def["in"]}
-            details.update(_extract_parameter_details(param_def))
-            params.append(details)
-
-    # 2. From the `requestBody`
-    request_body = op_details.get("requestBody", {})
-    if "$ref" in request_body:
-        request_body = _resolve_ref(spec, request_body["$ref"])
-    
-    content = request_body.get("content", {})
-    for media_type in content.values():
-        if "schema" in media_type:
-            params.extend(_unwrap_schema_properties(media_type["schema"], spec, set()))
-            
-    return params
+def get_param_fingerprint(param: Dict[str, Any]) -> str:
+    """Creates a stable, hashable fingerprint for a parameter dictionary."""
+    fingerprint_data = {
+        k: v for k, v in param.items() 
+        if k not in ['example', 'examples']
+    }
+    return hashlib.sha256(json.dumps(fingerprint_data, sort_keys=True).encode()).hexdigest()
 
 def extract_operations_and_components(service: str, spec: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Reduces an OpenAPI spec into a lightweight structure with operations and reusable components.
-    This version unwraps requestBody schemas to find all possible parameters.
+    Reduces an OpenAPI spec into a lightweight structure with genuinely reusable components,
+    identified by a unique fingerprint of their properties.
     """
-    all_params_map: Dict[str, List[Dict]] = {}
-    operations_with_param_keys: Dict[str, List[str]] = {}
+    canonical_params: Dict[str, Dict[str, Any]] = {}
+    param_usage_count: Dict[str, int] = {}
+    op_param_hashes: Dict[str, List[str]] = {}
 
-    # 1. First pass: Discover all parameters for every operation
+    # 1. First pass: Discover all parameters, fingerprint them, and track usage
     for path, methods in spec.get("paths", {}).items():
         if not isinstance(methods, dict):
             continue
@@ -120,25 +40,25 @@ def extract_operations_and_components(service: str, spec: Dict[str, Any]) -> Dic
             if not op_id:
                 continue
 
+            op_param_hashes[op_id] = []
             op_params = get_params_from_operation(details, path_level_params, spec)
-            operations_with_param_keys[op_id] = []
+            
             for param in op_params:
-                param_key = f'{param["name"]}:{param["in"]}'
-                operations_with_param_keys[op_id].append(param_key)
-                if param_key not in all_params_map:
-                    all_params_map[param_key] = []
-                all_params_map[param_key].append(param)
+                fingerprint = get_param_fingerprint(param)
+                op_param_hashes[op_id].append(fingerprint)
 
-    # 2. Second pass: Identify and create reusable components
+                if fingerprint not in canonical_params:
+                    canonical_params[fingerprint] = param
+                    param_usage_count[fingerprint] = 0
+                param_usage_count[fingerprint] += 1
+
+    # 2. Identify genuinely reusable components, keyed by their unique fingerprint
     reusable_components = {}
-    for key, param_list in all_params_map.items():
-        # A simple heuristic for reusability: if a param name/location pair appears more than once.
-        if len(param_list) > 1:
-            # In a real scenario, you might average or merge details.
-            # For now, we just take the first definition as canonical.
-            reusable_components[key] = param_list[0]
+    for fingerprint, count in param_usage_count.items():
+        if count > 1:
+            reusable_components[fingerprint] = canonical_params[fingerprint]
 
-    # 3. Third pass: Build the final operations structure with $refs
+    # 3. Build the final operations structure with appropriate $refs
     operations = {}
     for path, methods in spec.get("paths", {}).items():
         if not isinstance(methods, dict):
@@ -151,12 +71,17 @@ def extract_operations_and_components(service: str, spec: Dict[str, Any]) -> Dic
                 continue
 
             final_params = []
-            for param_key in operations_with_param_keys.get(op_id, []):
-                if param_key in reusable_components:
-                    final_params.append({"$ref": f"#/$defs/parameters/{param_key}"})
+            processed_fingerprints_in_op = set()
+
+            for fingerprint in op_param_hashes.get(op_id, []):
+                if fingerprint in processed_fingerprints_in_op:
+                    continue
+                processed_fingerprints_in_op.add(fingerprint)
+
+                if fingerprint in reusable_components:
+                    final_params.append({"$ref": f"#/$defs/parameters/{fingerprint}"})
                 else:
-                    # It appeared only once, so embed it directly.
-                    final_params.append(all_params_map[param_key][0])
+                    final_params.append(canonical_params[fingerprint])
             
             operations[op_id] = {
                 "service": service,
@@ -172,7 +97,6 @@ def extract_operations_and_components(service: str, spec: Dict[str, Any]) -> Dic
         "components": {"parameters": reusable_components},
         "operations": operations
     }
-
 
 def save_metadata(service: str, data: dict, out_dir: Path) -> Path:
     """

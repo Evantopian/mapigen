@@ -9,7 +9,7 @@ from typing import List
 project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root / "src"))
 
-from mapigen.metadata.utils import load_spec
+from tools.utils import load_spec, count_openapi_operations
 from mapigen.metadata.loader import load_metadata
 
 # Configure logging
@@ -21,15 +21,7 @@ DATA_DIR = ROOT_DIR / "src" / "mapigen" / "data"
 
 VALID_METHODS = {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
 
-def count_openapi_operations(spec: dict) -> int:
-    """Counts the number of operations in a raw OpenAPI spec."""
-    count = 0
-    for path_data in spec.get('paths', {}).values():
-        if isinstance(path_data, dict):
-            for method, details in path_data.items():
-                if method.lower() in VALID_METHODS and isinstance(details, dict) and details.get("operationId"):
-                    count += 1
-    return count
+
 
 def validate_operations_and_refs(data: dict, service_name: str) -> List[str]:
     """Validates the integrity of operations and their parameter references."""
