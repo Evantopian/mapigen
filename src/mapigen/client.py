@@ -6,6 +6,8 @@ from typing import Any, Optional
 import requests
 
 from mapigen.tools.utils import load_metadata
+from mapigen.discovery import services as service_discovery
+from mapigen.proxy import ServiceProxy
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -16,6 +18,19 @@ class Mapi:
     def __init__(self, base_url: Optional[str] = None):
         self._service_cache: dict[str, dict[str, Any]] = {}
         self.base_url = base_url
+        # Load the list of available services for the proxy
+        self._services = service_discovery.list_services()
+
+    def __getattribute__(self, name: str) -> Any:
+        """Overrides attribute access to enable dynamic service proxies."""
+        # Use a try/except block to avoid RecursionError when accessing self._services
+        try:
+            if name in object.__getattribute__(self, "_services"):
+                return ServiceProxy(self, name)
+        except AttributeError:
+            # This can happen during initialization before _services is set
+            pass
+        return object.__getattribute__(self, name)
 
     @lru_cache(maxsize=128)
     def _load_service_data(self, service_name: str) -> dict[str, Any]:
