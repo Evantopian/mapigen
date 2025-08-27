@@ -1,7 +1,7 @@
 """Unified HTTP transport for sync and async requests using niquests."""
 from __future__ import annotations
 import logging
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Dict, Union
 
 import niquests
 from niquests.auth import AuthBase
@@ -11,7 +11,7 @@ from niquests.models import Response
 class HttpTransport:
     """A unified HTTP transport using niquests."""
 
-    def __init__(self, auth: Optional[AuthBase] = None, **transport_kwargs: Any) -> None:
+    def __init__(self, auth: Optional[Union[AuthBase, tuple[Any, Any], str]] = None, **transport_kwargs: Any) -> None:
         self._transport_kwargs = transport_kwargs
         self._auth = auth
         self._sync_session = niquests.Session(**self._transport_kwargs)

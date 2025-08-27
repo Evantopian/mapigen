@@ -6,7 +6,7 @@ from unittest.mock import patch, MagicMock
 sys.path.append(str(Path(__file__).resolve().parent.parent / 'src'))
 
 from mapigen import Mapi
-from mapigen.auth.providers import BearerTokenProvider
+
 
 
 def test_proxy_success():
@@ -46,37 +46,36 @@ def test_proxy_non_existent_service():
         print(f"FAILURE: Caught unexpected exception for non-existent service: {e}")
 
 
-@patch('requests.request')
-def test_auth_provider_headers(mock_request: MagicMock):
-    """Tests that the auth provider correctly adds headers to the request."""
-    print("\n--- Running Test: test_auth_provider_headers ---")
+@patch('niquests.Session.request')
+def test_native_auth(mock_request: MagicMock):
+    """Tests that the native niquests auth object is correctly passed."""
+    print("\n--- Running Test: test_native_auth ---")
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {"status": "mock success"}
     mock_request.return_value = mock_response
 
-    print("Initializing client with BearerTokenProvider...")
-    auth_provider = BearerTokenProvider(token="my-dummy-token")
-    client = Mapi(auth_provider=auth_provider)
+    print("Initializing client with a direct auth token...")
+    client = Mapi(auth="my-dummy-token")
 
     print("Executing call with auth...")
     client.pokeapi.api_v2_pokemon_retrieve(id='ditto')
 
-    # Check that requests.request was called
+    # Check that the mock request was called
     if not mock_request.called:
-        print("FAILURE: requests.request was not called.")
+        print("FAILURE: niquests.Session.request was not called.")
         return
 
-    # Inspect the headers passed to the mock
+    # Inspect the auth object passed to the mock
     _, kwargs = mock_request.call_args
-    sent_headers = kwargs.get("headers", {})
-    expected_header = {"Authorization": "Bearer my-dummy-token"}
-
-    print(f"Sent headers: {sent_headers}")
-    if "Authorization" in sent_headers and sent_headers["Authorization"] == expected_header["Authorization"]:
-        print("SUCCESS: Auth headers were correctly passed to the request.")
+    sent_auth = kwargs.get("auth")
+    
+    print(f"Sent auth object: {sent_auth}")
+    if sent_auth == "my-dummy-token":
+        print("SUCCESS: Auth object was correctly passed to the request.")
     else:
-        print(f"FAILURE: Auth headers are incorrect. Expected {expected_header}")
+        print(f"FAILURE: Auth object is incorrect. Expected 'my-dummy-token', got {sent_auth}")
+
 
 
 def test_validation_missing_required():
@@ -107,6 +106,6 @@ def test_validation_unexpected_param():
 if __name__ == "__main__":
     test_proxy_success()
     test_proxy_non_existent_service()
-    test_auth_provider_headers()
+    test_native_auth()
     test_validation_missing_required()
     test_validation_unexpected_param()

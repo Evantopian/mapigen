@@ -1,7 +1,7 @@
 from __future__ import annotations
 import logging
 from functools import lru_cache
-from typing import Any, Optional, NamedTuple, Dict
+from typing import Any, Optional, NamedTuple, Dict, Union
 
 from niquests.auth import AuthBase
 
@@ -29,7 +29,7 @@ class Mapi:
     def __init__(
         self,
         base_url: Optional[str] = None,
-        auth: Optional[AuthBase] = None,
+        auth: Optional[Union[AuthBase, tuple[Any, Any], str]] = None,
         **transport_kwargs: Any,
     ) -> None:
         self._service_cache: Dict[str, Dict[str, Any]] = {}

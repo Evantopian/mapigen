@@ -10,11 +10,8 @@ def list_operations(service_name: str):
         print(f"Error: Service '{service_name}' not found.")
         return
 
-    # This part of the original code is not directly available through the public interface.
-    # We will load the service data to get the operations.
     try:
-        service_data = client._load_service_data(service_name)
-        operations = service_data.get("operations", {}).keys()
+        operations = client.discovery.list_operations(service_name)
         if not operations:
             print("No operations found for this service.")
         else:
