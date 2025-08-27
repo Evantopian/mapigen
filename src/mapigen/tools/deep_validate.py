@@ -3,7 +3,7 @@ import json
 import sys
 from pathlib import Path
 import logging
-from typing import Any
+from typing import Any, cast
 
 from mapigen.tools.utils import load_spec, get_params_from_operation, load_metadata
 
@@ -51,11 +51,12 @@ def main():
             for methods_item in raw_spec.get("paths", {}).values():
                 methods: dict[str, Any] = methods_item # Explicitly cast
                 for details_item in methods.values():
-                    details: dict[str, Any] = details_item # Explicitly cast
-                    if details.get("operationId") == op_id:
-                        original_op_details = details
-                        original_path_params = methods.get("parameters", [])
-                        break
+                    if isinstance(details_item, dict): # Re-add the check
+                        details: dict[str, Any] = cast(dict[str, Any], details_item) # Explicitly cast
+                        if details.get("operationId") == op_id:
+                            original_op_details = details
+                            original_path_params = methods.get("parameters", [])
+                            break
                 if original_op_details:
                     break
             
