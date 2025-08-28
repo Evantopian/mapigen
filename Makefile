@@ -12,11 +12,14 @@ help: ## Show this help message
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
 lint: ## Run ruff linter
-
 	ruff check .
 
-test: ## Run pytest
-	pytest
+test: test-report ## Run pytest with custom reporting
+
+test-report:
+	@echo "Running tests and generating report..."
+	@pytest --junitxml=pytest_report.xml || true
+	@$(PYTHON) utils/generate_integration_report.py
 
 
 populate: ## Populate using cached data

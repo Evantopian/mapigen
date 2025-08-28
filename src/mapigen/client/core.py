@@ -47,8 +47,9 @@ class Mapi:
         **transport_kwargs: Any,
     ) -> None:
         self.base_url = base_url
+        self.auth = auth
         self.default_timeout = default_timeout
-        self.http_client = HttpTransport(auth=auth, **transport_kwargs)
+        self.http_client = HttpTransport(**transport_kwargs)
         self.discovery = DiscoveryClient()
         self._services = self.discovery.list_services()
         logging.basicConfig(
@@ -158,7 +159,7 @@ class Mapi:
             config = self._prepare_request_config(service, operation, RequestOptions(include_metadata=include_metadata), **kwargs)
             request_kwargs: Dict[str, Any] = {
                 "method": config.method, "url": config.url, "params": config.params,
-                "headers": config.headers, "timeout": config.options.timeout,
+                "headers": config.headers, "timeout": config.options.timeout, "auth": self.auth,
             }
             if config.method != 'GET' and config.json_body:
                 request_kwargs["json"] = config.json_body
@@ -184,7 +185,7 @@ class Mapi:
             config = self._prepare_request_config(service, operation, RequestOptions(include_metadata=include_metadata), **kwargs)
             request_kwargs: Dict[str, Any] = {
                 "method": config.method, "url": config.url, "params": config.params,
-                "headers": config.headers, "timeout": config.options.timeout,
+                "headers": config.headers, "timeout": config.options.timeout, "auth": self.auth,
             }
             if config.method != 'GET' and config.json_body:
                 request_kwargs["json"] = config.json_body

@@ -28,11 +28,20 @@ class ApiKey(AuthBase):
             new_query = urlencode(query_params, doseq=True)
             new_url_parts = parsed_url._replace(query=new_query)
             r.url = urlunparse(new_url_parts)
-        # Note: Cookie-based API key auth is less common and not implemented here,
-        # but could be added if needed.
+        return r
+
+class BearerAuth(AuthBase):
+    """Attaches Bearer Token authentication to a given Request object."""
+
+    def __init__(self, token: str):
+        self.token = token
+
+    def __call__(self, r: PreparedRequest) -> PreparedRequest:
+        if r.headers is not None:
+            r.headers["Authorization"] = f"Bearer {self.token}"
         return r
 
 class AuthHelpers:
     """Provides a namespace for authentication helper classes."""
     ApiKey = ApiKey
-
+    BearerAuth = BearerAuth

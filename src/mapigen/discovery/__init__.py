@@ -1,14 +1,15 @@
 """Discovery client for services and operations."""
 from __future__ import annotations
-from typing import Any, List
+from typing import Any, List, Optional, Dict
 
 from . import services
-from ..cache.storage import load_service_from_disk
+from . import operations
 
 
 class DiscoveryClient:
     """Provides methods for discovering available services and their details."""
 
+    # Service-level methods
     @staticmethod
     def list_services() -> list[str]:
         return services.list_services()
@@ -29,11 +30,15 @@ class DiscoveryClient:
     def get_primary_auth(service: str) -> str:
         return services.get_primary_auth(service)
 
+    # Operation-level methods
     @staticmethod
     def list_operations(service: str) -> List[str]:
-        """Lists all operation keys for a given service."""
-        try:
-            service_data = load_service_from_disk(service)
-            return list(service_data.get("operations", {}).keys())
-        except FileNotFoundError:
-            return []
+        return operations.list_operations(service)
+
+    @staticmethod
+    def operation_exists(service: str, operation: str) -> bool:
+        return operations.operation_exists(service, operation)
+
+    @staticmethod
+    def get_operation(service: str, operation: str) -> Optional[Dict[str, Any]]:
+        return operations.get_operation(service, operation)

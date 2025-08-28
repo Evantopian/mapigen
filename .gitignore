@@ -213,3 +213,6 @@ __marimo__/
 *openapi.yml
 *openapi.json
 *utilize.json
+
+# test data
+pytest_report.xml

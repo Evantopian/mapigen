@@ -1,14 +1,14 @@
 import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock
+import pytest
 
 # Add src to path to allow importing mapigen
-sys.path.append(str(Path(__file__).resolve().parent.parent / 'src'))
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent / 'src'))
 
-import pytest
 from mapigen import Mapi
 from mapigen.client.exceptions import RequestError
-
+from mapigen.client.config import ResponseMetadata
 
 
 def test_proxy_success():
@@ -18,35 +18,27 @@ def test_proxy_success():
     print("Testing dynamic proxy for PokeAPI...")
     try:
         result = client.pokeapi.api_v2_pokemon_retrieve(id='ditto')
+        assert result is not None
         if result and 'name' in result and result['name'] == 'ditto':
             print("SUCCESS: Proxy test successful! Received data for Ditto.")
-            # Print condensed JSON
             condensed_result = {
-                "id": result.get("id"),
-                "name": result.get("name"),
-                "height": result.get("height"),
-                "weight": result.get("weight"),
+                "id": result.get("id"), "name": result.get("name"),
+                "height": result.get("height"), "weight": result.get("weight"),
             }
             print(f"Condensed result: {condensed_result}")
         else:
             print(f"FAILURE: Proxy test may have failed. Unexpected result: {result}")
-
     except Exception as e:
         print(f"FAILURE: Proxy test failed with an unexpected exception: {e}")
-
 
 def test_proxy_non_existent_service():
     """Tests that calling a non-existent service raises an AttributeError."""
     print("\n--- Running Test: test_proxy_non_existent_service ---")
     client = Mapi()
     print("Testing a service that doesn't exist...")
-    try:
+    with pytest.raises(AttributeError):
         client.non_existent_service.foo.bar()
-    except AttributeError:
-        print("SUCCESS: Caught expected AttributeError for non-existent service.")
-    except Exception as e:
-        print(f"FAILURE: Caught unexpected exception for non-existent service: {e}")
-
+    print("SUCCESS: Caught expected AttributeError for non-existent service.")
 
 @patch('niquests.Session.request')
 def test_native_auth(mock_request: MagicMock):
@@ -57,53 +49,47 @@ def test_native_auth(mock_request: MagicMock):
     mock_response.json.return_value = {"status": "mock success"}
     mock_request.return_value = mock_response
 
-    print("Initializing client with a direct auth token...")
     client = Mapi(auth="my-dummy-token")
-
-    print("Executing call with auth...")
     client.pokeapi.api_v2_pokemon_retrieve(id='ditto')
-
-    # Check that the mock request was called
-    if not mock_request.called:
-        print("FAILURE: niquests.Session.request was not called.")
-        return
-
-    # Inspect the auth object passed to the mock
+    assert mock_request.called
     _, kwargs = mock_request.call_args
-    sent_auth = kwargs.get("auth")
-    
-    print(f"Sent auth object: {sent_auth}")
-    if sent_auth == "my-dummy-token":
-        print("SUCCESS: Auth object was correctly passed to the request.")
-    else:
-        print(f"FAILURE: Auth object is incorrect. Expected 'my-dummy-token', got {sent_auth}")
+    assert kwargs.get("auth") == "my-dummy-token"
+    print("SUCCESS: Auth object was correctly passed to the request.")
 
+def test_metadata_flag():
+    """Tests that the include_metadata flag returns the correct structure."""
+    print("\n--- Running Test: test_metadata_flag ---")
+    client = Mapi()
+    # Test success case
+    result = client.pokeapi.api_v2_pokemon_retrieve(id='snorlax', include_metadata=True)
+    assert isinstance(result, dict)
+    assert "data" in result and "metadata" in result
+    assert isinstance(result["metadata"], ResponseMetadata)
+    assert result["data"]['name'] == 'snorlax'
+    assert result["metadata"].status == "success"
+    print("SUCCESS: Metadata flag returned correct success structure.")
+
+    # Test error case
+    result_err = client.pokeapi.api_v2_pokemon_retrieve(include_metadata=True)
+    assert isinstance(result_err, dict)
+    assert result_err["data"] is None and "metadata" in result_err
+    assert isinstance(result_err["metadata"], ResponseMetadata)
+    assert result_err["metadata"].status == "error"
+    print("SUCCESS: Metadata flag returned correct error structure.")
 
 
 def test_validation_missing_required():
     """Tests that a call with a missing required parameter raises a RequestError."""
     print("\n--- Running Test: test_validation_missing_required ---")
     client = Mapi()
-    # This call should fail because 'id' is required.
-    with pytest.raises(RequestError) as e:
+    with pytest.raises(RequestError):
         client.pokeapi.api_v2_pokemon_retrieve()
-    print(f"SUCCESS: Caught expected RequestError: {e.value}")
-
+    print("SUCCESS: Caught expected RequestError.")
 
 def test_validation_unexpected_param():
     """Tests that a call with an unexpected parameter raises a RequestError."""
     print("\n--- Running Test: test_validation_unexpected_param ---")
     client = Mapi()
-    # This call should fail because 'foo' is not a valid parameter.
-    with pytest.raises(RequestError) as e:
+    with pytest.raises(RequestError):
         client.pokeapi.api_v2_pokemon_retrieve(id='ditto', foo='bar')
-    print(f"SUCCESS: Caught expected RequestError: {e.value}")
-
-
-
-if __name__ == "__main__":
-    test_proxy_success()
-    test_proxy_non_existent_service()
-    test_native_auth()
-    test_validation_missing_required()
-    test_validation_unexpected_param()
+    print("SUCCESS: Caught expected RequestError.")
