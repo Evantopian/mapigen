@@ -53,6 +53,7 @@ def process_service(service_name: str, url: str, service_data_dir: Path) -> dict
         notes.append("Extracting lightweight 'utilize' metadata...")
         processed_data: dict[str, Any] = extract_operations_and_components(service_name, cast(dict[str, Any], normalized_spec))
         processed_data['servers'] = servers
+        processed_data['format_version'] = 3  # Add format version to utilize.json
         op_count = len(processed_data['operations'])
         param_count = len(processed_data['components']['parameters'])
         notes.append(f"Extracted {op_count} operations and {param_count} reusable parameters.")
@@ -158,7 +159,7 @@ def main():
 
                 rank = get_rank(service_name)
                 metadata_content: dict[str, Any] = {
-                    "format_version": 2,
+                    "format_version": 3,
                     "first_accessed": first_accessed_time,
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                     "api_reference": url,

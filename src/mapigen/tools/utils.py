@@ -55,8 +55,13 @@ def _extract_parameter_details(param_data: dict[str, Any]) -> dict[str, Any]:
             details[key] = param_data[key]
         elif key in schema:
             details[key] = schema[key]
-            
-    details["type"] = schema.get("type", "any")
+    
+    # Only add the type if it's explicitly defined and valid.
+    # The absence of a type key means 'any type' in JSON Schema.
+    param_type = schema.get("type")
+    if param_type:
+        details["type"] = param_type
+
     if "required" not in details:
         details["required"] = param_data.get("required", False)
     return details

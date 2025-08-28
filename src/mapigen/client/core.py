@@ -10,6 +10,7 @@ from niquests.auth import AuthBase
 from niquests.exceptions import RequestException
 from niquests.models import Response
 
+from ..auth_helpers import AuthHelpers
 from ..discovery import DiscoveryClient
 from ..http.transport import HttpTransport
 from ..proxy import ServiceProxy
@@ -35,6 +36,8 @@ structlog.configure(
 log = structlog.get_logger()
 
 class Mapi:
+    auth = AuthHelpers
+
     def __init__(
         self,
         base_url: Optional[str] = None,
@@ -64,7 +67,14 @@ class Mapi:
     @lru_cache(maxsize=128)
     def _load_service_data(self, service_name: str) -> Dict[str, Any]:
         try:
-            return load_service_from_disk(service_name)
+            data = load_service_from_disk(service_name)
+            if data.get("format_version") != 3:
+                raise MapiError(
+                    f"Unsupported data format version for service '{service_name}'. "
+                    f"Expected version 3, but found {data.get('format_version')}. "
+                    f"Please regenerate the service data."
+                )
+            return data
         except FileNotFoundError as e:
             log.error("service_not_found", service=service_name, exc_info=e)
             raise ServiceNotFoundError(f"Service '{service_name}' not found", service=service_name) from e
