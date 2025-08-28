@@ -12,6 +12,7 @@ load_dotenv()
 SERVICE_NAME = "discord"
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 CHANNEL_ID = os.getenv("TEST_CHANNEL_ID")
+MESSAGE_ID = os.getenv("DISCORD_MESSAGE_ID")
 
 
 @pytest.fixture(scope="module")
@@ -34,8 +35,11 @@ def test_discord_integration(client: Mapi):
     try:
         # --- Test 1: Create Message ---
         content = "Mapi Client test..."
+        created_message_id = None # Declare variable to store the created message ID
 
         def assert_create_message(data):
+            nonlocal created_message_id # Use nonlocal to modify the outer variable
+            created_message_id = data.get("id")
             assert data.get("content") == content
 
         run_test_operation(
@@ -77,6 +81,23 @@ def test_discord_integration(client: Mapi):
             success_message_template="SUCCESS: Retrieved recent messages.",
             channel_id=CHANNEL_ID,
             limit=5,
+        )
+        
+        def assert_get_messages(data):
+            # Removed content assertion as MESSAGE_ID is hardcoded and content may vary.
+            # If you want to assert on content, update this line with the expected content
+            # for the message referred to by MESSAGE_ID.
+            assert data.get("id") == MESSAGE_ID # Assert that the retrieved message ID matches the requested ID   
+        
+        run_test_operation(
+            client=client,
+            service_name=SERVICE_NAME,
+            op_name="get_message",
+            operations_checked=operations_checked,
+            assertion_callback=assert_get_messages,
+            success_message_template="SUCCESS: Retrieved message '{content}' with ID: {id}", # Updated message
+            channel_id=CHANNEL_ID,
+            message_id=MESSAGE_ID, # Use the hardcoded MESSAGE_ID
         )
 
         # If all tests passed, report success

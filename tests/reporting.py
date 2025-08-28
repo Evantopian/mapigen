@@ -10,7 +10,7 @@ from mapigen import Mapi, MapiError
 # This dictionary is the single source of truth for which credentials
 # are needed for each integration test.
 REQUIRED_CREDS = {
-    "discord": ["DISCORD_BOT_TOKEN", "TEST_CHANNEL_ID"],
+    "discord": ["DISCORD_BOT_TOKEN", "TEST_CHANNEL_ID", "DISCORD_MESSAGE_ID"],
     "github": ["GITHUB_TOKEN", "TEST_GITHUB_USER"],
     "pokeapi": [],  # No specific credentials required for basic PokeAPI tests
 }

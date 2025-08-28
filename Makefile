@@ -39,6 +39,8 @@ validate: ## Validate populated data
 	$(TOOLS).validate_data
 	$(TOOLS).deep_validate
 
+inspector: ## Run inspector utility
+	@$(PYTHON) utils/inspector.py $(filter-out $@,$(MAKECMDGOALS))
 
 show-format: ## Display the standard SDK response format
 	@$(PYTHON) utils/show_format.py
