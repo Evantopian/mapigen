@@ -18,7 +18,7 @@ REQUIRED_CREDS = {
 # This dictionary controls which services will have their payloads saved to tmp/.
 SAVE_PAYLOAD_TOGGLE = {
     "discord": True,
-    "github": False,
+    "github": True,
     "pokeapi": True,
 }
 

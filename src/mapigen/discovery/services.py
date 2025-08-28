@@ -1,6 +1,6 @@
 """Service discovery methods for reading from the service registry."""
 from __future__ import annotations
-import json
+import orjson as json
 from functools import lru_cache
 from pathlib import Path
 from typing import Any

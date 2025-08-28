@@ -33,7 +33,7 @@ def test_discord_integration(client: Mapi):
     operations_checked = []
     try:
         # --- Test 1: Create Message ---
-        content = "Hello from a Mapigen integration test!"
+        content = "Mapi Client test..."
 
         def assert_create_message(data):
             assert data.get("content") == content

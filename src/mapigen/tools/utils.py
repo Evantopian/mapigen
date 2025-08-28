@@ -1,6 +1,6 @@
 from __future__ import annotations
 import yaml
-import json
+import orjson as json
 import logging
 from pathlib import Path
 from typing import Any

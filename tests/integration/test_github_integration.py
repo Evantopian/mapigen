@@ -6,13 +6,12 @@ from mapigen import Mapi, Auth, MapiError
 from ..reporting import report, REQUIRED_CREDS, run_test_operation
 
 # Load environment variables from .env file
-load_dotenv()
+load_dotenv(override=True)
 
 # --- Test Data ---
 SERVICE_NAME = "github"
 TOKEN = os.getenv("GITHUB_TOKEN")
 TEST_USER = os.getenv("TEST_GITHUB_USER")
-
 
 @pytest.fixture(scope="module")
 def client() -> Mapi:

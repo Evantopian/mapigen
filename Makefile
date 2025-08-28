@@ -18,11 +18,11 @@ lint: ## Run ruff linter
 
 test: ## Run pytest. Usage: make test t=tests/path/to/test.py
 	@if [ -z "$(t)" ]; then \
-		echo "Running all tests..."; \
-		pytest; \
+			echo "Running all tests..."; \
+			pytest -s; \
 	else \
-		echo "Running specified tests: $(t)"; \
-		pytest $(t); \
+			echo "Running specified tests: $(t)"; \
+			pytest -s $(t); \
 	fi
 
 
