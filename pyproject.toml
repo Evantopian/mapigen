@@ -15,6 +15,7 @@ jsonschema = "^4.25.1"
 lz4 = "^4.3"
 openapi-spec-validator = "^0.7.2"
 openapi-schema-validator = "^0.6.3"
+structlog = "^25.4.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.1"

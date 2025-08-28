@@ -1,4 +1,4 @@
 from .client import Mapi
-from .client.exceptions import MapiError, ServiceNotFoundError, OperationNotFoundError, ValidationError, RequestError
+from .client.exceptions import MapiError
 
-__all__ = ["Mapi", "MapiError", "ServiceNotFoundError", "OperationNotFoundError", "ValidationError", "RequestError"]
+__all__ = ["Mapi", "MapiError"]

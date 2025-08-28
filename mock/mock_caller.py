@@ -1,4 +1,4 @@
-from mapigen import Mapi, RequestError
+from mapigen import Mapi, MapiError
 
 def main():
     """Demonstrates how to use the mapi."""
@@ -29,11 +29,9 @@ def main():
             print(f"Data: {data.get('name')}")
             print(f"Metadata: {metadata}")
 
-    except RequestError as e:
-        print(f"\n--- CAUGHT EXPECTED ERROR ---")
-        print(f"Error Type: {e.error_type}")
-        print(f"Error Category: {e.error_category}")
-        print(f"HTTP Status: {e.http_status}")
+    except MapiError as e:
+        print("\n--- CAUGHT EXPECTED ERROR ---")
+        # In a real application, you could inspect e.service, e.operation, etc.
         print(f"Message: {e}")
 
 
