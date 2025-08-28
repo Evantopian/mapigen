@@ -31,14 +31,15 @@ class ApiKey(AuthBase):
         return r
 
 class BearerAuth(AuthBase):
-    """Attaches Bearer Token authentication to a given Request object."""
+    """Attaches Bearer-style Token authentication to a given Request object."""
 
-    def __init__(self, token: str):
+    def __init__(self, token: str, scheme: str = "Bearer"):
         self.token = token
+        self.scheme = scheme
 
     def __call__(self, r: PreparedRequest) -> PreparedRequest:
         if r.headers is not None:
-            r.headers["Authorization"] = f"Bearer {self.token}"
+            r.headers["Authorization"] = f"{self.scheme} {self.token}"
         return r
 
 class AuthHelpers:

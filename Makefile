@@ -1,4 +1,5 @@
-.PHONY: help lint populate populate-force populate-debug validate clean clean-openapi
+.PHONY: help lint test test-report populate populate-force populate-debug validate clean clean-openapi show-format show-data
+
 
 # Variables
 PYTHONPATH := src
@@ -33,17 +34,17 @@ validate: ## Validate populated data
 	$(TOOLS).deep_validate
 
 
-show-format: ## Display the standard SDK response format                                                               │
-	@$(PYTHON) utils/show_format.py                                                                                    │
+show-format: ## Display the standard SDK response format
+	@$(PYTHON) utils/show_format.py
 
+
+show-data: ## Pretty-print a response file. Usage: make show-data tmp/file.json
+	@$(PYTHON) utils/show_format.py $(filter-out $@,$(MAKECMDGOALS))
 
 clean: ## Remove all generated data files (utilize and notice files)
 	find src/mapigen/data -type f -name "*.utilize.json*" -delete
 	find src/mapigen/registry -type f -name "AUTH_NOTICE.md" -delete
 	find . -type f -name "services.json" -delete
-
-#clean: ## Remove populated data
-#\trm -rf src/mapigen/data
 
 clean-openapi: ## Remove only OpenAPI artifacts
 	find src/mapigen/data -type f -name "*.openapi.*" -delete

@@ -2,84 +2,73 @@ import os
 import pytest
 from dotenv import load_dotenv
 
-from typing import Any
+from mapigen import Mapi, Auth, MapiError
+from ..reporting import report, REQUIRED_CREDS, run_test_operation
 
-from mapigen import Mapi
-from niquests.auth import AuthBase
-from niquests.models import PreparedRequest
-
-# Load environment variables from .env file in the project root
+# Load environment variables from .env file
 load_dotenv()
 
-# --- Credentials ---
-DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-TEST_CHANNEL_ID = os.getenv("TEST_CHANNEL_ID")
+# --- Test Data ---
+SERVICE_NAME = "discord"
+TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+CHANNEL_ID = os.getenv("TEST_CHANNEL_ID")
 
-# --- Auth Helper for Discord Bot Tokens ---
-class BotTokenAuth(AuthBase):
-    """Injects the 'Bot' token into the Authorization header."""
-    def __init__(self, token: Any):
-        self.token = token
-
-    def __call__(self, r: PreparedRequest) -> PreparedRequest:
-        if r.headers is not None:
-            r.headers['Authorization'] = f'Bot {self.token}'
-        return r
-
-# Pytest marker to skip tests if credentials are not provided
-requires_discord_creds = pytest.mark.skipif(
-    not all([DISCORD_BOT_TOKEN, TEST_CHANNEL_ID]),
-    reason="Test requires DISCORD_BOT_TOKEN and TEST_CHANNEL_ID in .env file"
-)
 
 @pytest.fixture(scope="module")
 def client() -> Mapi:
     """Pytest fixture to initialize the Mapi client with Discord auth."""
-    if not DISCORD_BOT_TOKEN:
-        pytest.skip("DISCORD_BOT_TOKEN not found in .env")
-    return Mapi(auth=BotTokenAuth(DISCORD_BOT_TOKEN))
+    if not TOKEN:
+        pytest.skip("DISCORD_BOT_TOKEN not found, skipping client fixture.")
+    # Discord requires a special "Bot" scheme for its token.
+    return Mapi(auth=Auth.BearerAuth(TOKEN, scheme="Bot"))
 
-@requires_discord_creds
-def test_sync_create_and_list_messages(client: Mapi):
-    """Tests creating a message and then listing it, synchronously."""
-    print("--- Testing: Push Message (Sync) ---")
-    content = "Hello from the Mapigen SDK! (Sync Integration Test)"
-    response_wrapper = client.discord.create_message(channel_id=TEST_CHANNEL_ID, content=content)
-    
-    assert response_wrapper is not None
-    assert response_wrapper.get('data') is not None
-    response = response_wrapper['data']
-    assert response.get('content') == content
-    print(f"Message sent! ID: {response.get('id')}")
 
-    print("\n--- Testing: Get Channel (Sync) ---")
-    channel_info_wrapper = client.discord.get_channel(channel_id=TEST_CHANNEL_ID)
-    
-    assert channel_info_wrapper is not None
-    assert channel_info_wrapper.get('data') is not None
-    channel_info = channel_info_wrapper['data']
-    assert channel_info.get('id') == TEST_CHANNEL_ID
-    print(f"Successfully retrieved channel info: {channel_info.get('name')}")
+def test_discord_integration(client: Mapi):
+    """Runs a series of integration tests for the Discord service."""
+    if not all([TOKEN, CHANNEL_ID]):
+        report.add_skipped(SERVICE_NAME)
+        pytest.skip(f"Skipping {SERVICE_NAME} tests; missing required credentials.")
+        return
 
-@requires_discord_creds
-@pytest.mark.asyncio
-async def test_async_create_and_list_messages(client: Mapi):
-    """Tests creating a message and then listing it, asynchronously."""
-    print("\n--- Testing: Push Message (Async) ---")
-    content = "Hello from the Mapigen SDK! (Async Integration Test)"
-    response_wrapper = await client.discord.create_message.aexecute(channel_id=TEST_CHANNEL_ID, content=content)
-    
-    assert response_wrapper is not None
-    assert response_wrapper.get('data') is not None
-    response = response_wrapper['data']
-    assert response.get('content') == content
-    print(f"Message sent! ID: {response.get('id')}")
+    operations_checked = []
+    try:
+        # --- Test 1: Create Message ---
+        content = "Hello from a Mapigen integration test!"
 
-    print("\n--- Testing: Get Channel (Async) ---")
-    channel_info_wrapper = await client.discord.get_channel.aexecute(channel_id=TEST_CHANNEL_ID)
-    
-    assert channel_info_wrapper is not None
-    assert channel_info_wrapper.get('data') is not None
-    channel_info = channel_info_wrapper['data']
-    assert channel_info.get('id') == TEST_CHANNEL_ID
-    print(f"Successfully retrieved channel info: {channel_info.get('name')}")
+        def assert_create_message(data):
+            assert data.get("content") == content
+
+        run_test_operation(
+            client=client,
+            service_name=SERVICE_NAME,
+            op_name="create_message",
+            operations_checked=operations_checked,
+            assertion_callback=assert_create_message,
+            success_message_template="SUCCESS: Message sent with ID: {id}",
+            channel_id=CHANNEL_ID,
+            content=content,
+        )
+
+        # --- Test 2: Get Channel ---
+        def assert_get_channel(data):
+            assert data.get("id") == CHANNEL_ID
+
+        run_test_operation(
+            client=client,
+            service_name=SERVICE_NAME,
+            op_name="get_channel",
+            operations_checked=operations_checked,
+            assertion_callback=assert_get_channel,
+            success_message_template="SUCCESS: Retrieved channel '{name}'",
+            channel_id=CHANNEL_ID,
+        )
+
+        # If all tests passed, report success
+        report.add_passed(
+            SERVICE_NAME, operations_checked, REQUIRED_CREDS[SERVICE_NAME]
+        )
+
+    except MapiError as e:
+        print(f"--- CAUGHT EXPECTED ERROR for {SERVICE_NAME} ---")
+        print(e)
+        report.add_failed(SERVICE_NAME, operations_checked, e)

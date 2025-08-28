@@ -1,47 +1,72 @@
-import json
-from dataclasses import asdict
+
+import pytest
+from dotenv import load_dotenv
+
 from mapigen import Mapi, MapiError
+from ..reporting import report, REQUIRED_CREDS, run_test_operation
 
-def test_pokeapi_and_save_output():
-    """Tests PokeAPI and saves the output to the tmp/ directory for analysis."""
-    print("--- Initializing mapi for PokeAPI test ---")
-    client = Mapi()
-    tmp_dir = "tmp"
+# Load environment variables from .env file
+load_dotenv()
 
-    print("\n--- Making a call to pokeapi.api_v2_pokemon_retrieve(id='ditto') ---")
+# --- Test Data ---
+SERVICE_NAME = "pokeapi"
+
+
+@pytest.fixture(scope="module")
+def client() -> Mapi:
+    """Pytest fixture to initialize the Mapi client for PokeAPI."""
+    return Mapi()
+
+
+def test_pokeapi_integration(client: Mapi):
+    """Runs a series of integration tests for the PokeAPI service."""
+    # PokeAPI does not require specific credentials for these basic calls.
+    # We ensure that the service is recognized by the reporting system.
+    if SERVICE_NAME not in REQUIRED_CREDS:
+        report.add_skipped(SERVICE_NAME)
+        pytest.skip(f"Skipping {SERVICE_NAME} tests; service not configured in REQUIRED_CREDS.")
+        return
+
+    operations_checked = []
     try:
-        # --- Ditto call ---
-        result = client.pokeapi.api_v2_pokemon_retrieve(id="ditto")
-        
-        assert result is not None
-        assert isinstance(result, dict)
-        assert result.get('data') is not None
-        assert result['data'].get('name') == 'ditto'
-        
-        ditto_path = f"{tmp_dir}/pokeapi_ditto_response.json"
-        with open(ditto_path, 'w') as f:
-            if result.get("metadata"):
-                result["metadata"] = asdict(result["metadata"]) # type: ignore
-            json.dump(result, f, indent=2)
-        print(f"SUCCESS: Saved Ditto response to {ditto_path}")
+        # --- Test 1: Get Ditto ---
+        pokemon_id_ditto = "ditto"
 
-        # --- Pikachu call ---
-        print("\n--- Making another call for Pikachu ---")
-        result_pikachu = client.pokeapi.api_v2_pokemon_retrieve(id="pikachu")
-        
-        assert result_pikachu is not None
-        assert isinstance(result_pikachu, dict)
-        assert result_pikachu.get('data') is not None
-        assert result_pikachu['data'].get('name') == 'pikachu'
-        print("SUCCESS: Got data for Pikachu.")
+        def assert_ditto_data(data):
+            assert data.get("name") == pokemon_id_ditto
+
+        run_test_operation(
+            client=client,
+            service_name=SERVICE_NAME,
+            op_name="api_v2_pokemon_retrieve",
+            operations_checked=operations_checked,
+            assertion_callback=assert_ditto_data,
+            success_message_template="SUCCESS: Retrieved {name} data.",
+            id=pokemon_id_ditto,
+        )
+
+        # --- Test 2: Get Pikachu ---
+        pokemon_id_pikachu = "pikachu"
+
+        def assert_pikachu_data(data):
+            assert data.get("name") == pokemon_id_pikachu
+
+        run_test_operation(
+            client=client,
+            service_name=SERVICE_NAME,
+            op_name="api_v2_pokemon_retrieve",
+            operations_checked=operations_checked,
+            assertion_callback=assert_pikachu_data,
+            success_message_template="SUCCESS: Retrieved {name} data.",
+            id=pokemon_id_pikachu,
+        )
+
+        # If all tests passed, report success
+        report.add_passed(
+            SERVICE_NAME, operations_checked, REQUIRED_CREDS[SERVICE_NAME]
+        )
 
     except MapiError as e:
-        error_path = f"{tmp_dir}/pokeapi_error.log"
-        print(f"\n--- CAUGHT UNEXPECTED ERROR --- Saving to {error_path}")
-        with open(error_path, 'w') as f:
-            f.write(f"Message: {e}\n")
-            if hasattr(e, 'service'):
-                f.write(f"Service: {e.service}\n")
-            if hasattr(e, 'operation'):
-                f.write(f"Operation: {e.operation}\n")
-        raise e
+        print(f"--- CAUGHT EXPECTED ERROR for {SERVICE_NAME} ---")
+        print(e)
+        report.add_failed(SERVICE_NAME, operations_checked, e)
