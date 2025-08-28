@@ -16,8 +16,14 @@ lint: ## Run ruff linter
 
 	ruff check .
 
-test: ## Run pytest
-	pytest
+test: ## Run pytest. Usage: make test t=tests/path/to/test.py
+	@if [ -z "$(t)" ]; then \
+		echo "Running all tests..."; \
+		pytest; \
+	else \
+		echo "Running specified tests: $(t)"; \
+		pytest $(t); \
+	fi
 
 
 populate: ## Populate using cached data

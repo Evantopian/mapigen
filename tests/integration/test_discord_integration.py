@@ -63,6 +63,22 @@ def test_discord_integration(client: Mapi):
             channel_id=CHANNEL_ID,
         )
 
+        # --- Test 3: List Messages ---
+        def assert_list_messages(data):
+            assert isinstance(data, list)
+            assert len(data) <= 5
+
+        run_test_operation(
+            client=client,
+            service_name=SERVICE_NAME,
+            op_name="list_messages",
+            operations_checked=operations_checked,
+            assertion_callback=assert_list_messages,
+            success_message_template="SUCCESS: Retrieved recent messages.",
+            channel_id=CHANNEL_ID,
+            limit=5,
+        )
+
         # If all tests passed, report success
         report.add_passed(
             SERVICE_NAME, operations_checked, REQUIRED_CREDS[SERVICE_NAME]

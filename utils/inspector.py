@@ -1,6 +1,7 @@
 import argparse
 import json
 from mapigen import Mapi
+from mapigen.cache.storage import load_service_from_disk
 
 from typing import Any
 
@@ -50,6 +51,21 @@ def main():
     elif args.command == "get-op":
         operation_data = client.discovery.get_operation(args.service, args.operation)
         if operation_data:
+            full_service_data = load_service_from_disk(args.service)
+            resolved_params = []
+            for param in operation_data.get("parameters", []):
+                if "$ref" in param:
+                    ref_path = param["$ref"]
+                    component_name = ref_path.split("/")[-1]
+                    param_details = (
+                        full_service_data.get("components", {})
+                        .get("parameters", {})
+                        .get(component_name, {})
+                    )
+                    resolved_params.append(param_details)
+                else:
+                    resolved_params.append(param)
+            operation_data["parameters"] = resolved_params
             print_json(operation_data)
         else:
             print(f"Error: Operation '{args.operation}' not found in service '{args.service}'.")
