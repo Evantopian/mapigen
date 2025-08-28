@@ -137,7 +137,6 @@ def compress_metadata(json_path: Path) -> Path:
 
 
 
-
 def extract_auth_info(spec: dict[str, Any]) -> dict[str, Any]:
     """
     Extracts authentication information from the OpenAPI spec's security schemes.
@@ -164,3 +163,15 @@ def extract_auth_info(spec: dict[str, Any]) -> dict[str, Any]:
         primary_auth = auth_types[0]
 
     return {"auth_types": auth_types, "primary_auth": primary_auth}
+
+def resolve_parameter(param_ref: dict[str, Any], service_data: dict[str, Any]) -> dict[str, Any]:
+    """Resolves a parameter reference to its full definition."""
+    if "$ref" in param_ref:
+        ref_path = param_ref["$ref"]
+        if not ref_path.startswith("#/$defs/parameters/"):
+            # In a real-world scenario, might raise an error
+            return {}
+        component_name = ref_path.split("/")[-1]
+        return service_data.get("components", {}).get("parameters", {}).get(component_name, {})
+    # If there's no $ref, it's an inline parameter object already
+    return param_ref

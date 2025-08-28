@@ -5,7 +5,7 @@ from pathlib import Path
 import logging
 from typing import Any, Optional
 
-from mapigen.tools.utils import load_spec, count_openapi_operations
+from mapigen.tools.utils import load_spec, count_openapi_operations, resolve_parameter
 from mapigen.cache.storage import load_service_from_disk
 from mapigen.tools.populate_data import FORMAT_VERSION    
 # Configure logging
@@ -34,17 +34,13 @@ def validate_operations_and_refs(data: dict[str, Any], service_name: str) -> lis
         if not all(k in op_data for k in ["service", "path", "method", "parameters"]):
             errors.append(f"Operation '{op_id}' is missing one of [service, path, method, parameters].")
         
-        for param in op_data.get("parameters", []):
-            if "$ref" in param:
-                ref_path = param["$ref"]
-                if not ref_path.startswith("#/$defs/parameters/"):
-                    errors.append(f"Operation '{op_id}' has a malformed $ref: '{ref_path}'.")
-                else:
-                    component_name = ref_path.split("/")[-1]
-                    if component_name not in components:
-                        errors.append(f"Operation '{op_id}' has a broken $ref: '{ref_path}'.")
-            elif not all(k in param for k in ["name", "in", "type"]):
-                errors.append(f"Inline parameter in '{op_id}' is missing one of [name, in, type].")
+        for param_ref in op_data.get("parameters", []):
+            param_details = resolve_parameter(param_ref, data)
+            if not param_details:
+                errors.append(f"Operation '{op_id}' has a broken or malformed $ref: '{param_ref.get('$ref')}'.")
+            elif "$ref" not in param_ref:  # It was an inline parameter
+                if not all(k in param_details for k in ["name", "in", "type"]):
+                    errors.append(f"Inline parameter in '{op_id}' is missing one of [name, in, type].")
     return errors
 
 def main():

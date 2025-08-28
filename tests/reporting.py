@@ -1,5 +1,5 @@
 import yaml
-import json
+import orjson as json
 from pathlib import Path
 from collections import defaultdict
 from typing import Any, Callable, List
@@ -40,8 +40,8 @@ def _save_payload_if_enabled(service_name: str, op_name: str, response_wrapper: 
         ):
             data_to_save["metadata"] = asdict(data_to_save["metadata"])
 
-        with open(file_path, "w") as f:
-            json.dump(data_to_save, f, indent=2)
+        with open(file_path, "wb") as f:
+            f.write(json.dumps(data_to_save, option=json.OPT_INDENT_2))
         print(f"SUCCESS: Saved payload to {file_path}")
 
 

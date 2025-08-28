@@ -14,6 +14,7 @@ from ..auth_helpers import AuthHelpers
 from ..discovery import DiscoveryClient
 from ..http.transport import HttpTransport
 from ..proxy import ServiceProxy
+from ..tools.utils import resolve_parameter
 from ..cache.storage import load_service_from_disk
 from ..validation.schemas import build_and_validate_parameters
 from jsonschema import ValidationError as JsonSchemaValidationError
@@ -127,11 +128,7 @@ class Mapi:
 
         path_params, query_params, body_params, headers = {}, {}, {}, {}
         for param_ref in op_details.get("parameters", []):
-            param_details = param_ref
-            if "$ref" in param_ref:
-                ref_path = param_ref["$ref"]
-                component_name = ref_path.split("/")[-1]
-                param_details = service_data.get("components", {}).get("parameters", {}).get(component_name, {})
+            param_details = resolve_parameter(param_ref, service_data)
 
             param_name = param_details.get("name")
             if param_name in kwargs:

@@ -4,9 +4,24 @@ info:
     tests. Tests may be skipped due to missing credentials in your .env file.
 tests:
   passed:
+    discord:
+      checked:
+      - create_message
+      - get_channel
+      - list_messages
+      - get_message
+      token_used:
+      - $DISCORD_BOT_TOKEN
+      - $TEST_CHANNEL_ID
+      - $DISCORD_MESSAGE_ID
     github:
       checked:
       - users/get-by-username
       token_used:
       - $GITHUB_TOKEN
       - $TEST_GITHUB_USER
+    pokeapi:
+      checked:
+      - api_v2_pokemon_retrieve
+      - api_v2_pokemon_retrieve
+      token_used: []

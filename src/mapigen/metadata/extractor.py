@@ -83,7 +83,10 @@ def extract_operations_and_components(service: str, spec: dict[str, Any]) -> dic
                 if fingerprint in reusable_components:
                     final_params.append({"$ref": f"#/$defs/parameters/{fingerprint}"})
                 else:
-                    final_params.append(canonical_params[fingerprint])
+                    param_details = canonical_params[fingerprint]
+                    if 'type' not in param_details:
+                        param_details['type'] = 'object' # Defaulting to object, can be refined
+                    final_params.append(param_details)
             
             operations[op_id] = {
                 "service": service,

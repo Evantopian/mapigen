@@ -8,14 +8,13 @@ from pathlib import Path
 import logging
 from datetime import datetime, timezone
 from typing import Any, Optional, cast
-
-FORMAT_VERSION = 3
-
 from mapigen.metadata.fetcher import fetch_spec
 from mapigen.metadata.converter import normalize_spec
 from mapigen.metadata.extractor import extract_operations_and_components, save_metadata
 from mapigen.tools.utils import count_openapi_operations, load_spec, compress_metadata, extract_auth_info
 from mapigen.cache.ranking import get_rank
+
+FORMAT_VERSION = 3
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
