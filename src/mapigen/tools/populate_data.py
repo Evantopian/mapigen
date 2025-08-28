@@ -9,6 +9,8 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Optional, cast
 
+FORMAT_VERSION = 3
+
 from mapigen.metadata.fetcher import fetch_spec
 from mapigen.metadata.converter import normalize_spec
 from mapigen.metadata.extractor import extract_operations_and_components, save_metadata
@@ -53,7 +55,7 @@ def process_service(service_name: str, url: str, service_data_dir: Path) -> dict
         notes.append("Extracting lightweight 'utilize' metadata...")
         processed_data: dict[str, Any] = extract_operations_and_components(service_name, cast(dict[str, Any], normalized_spec))
         processed_data['servers'] = servers
-        processed_data['format_version'] = 3  # Add format version to utilize.json
+        processed_data['format_version'] = FORMAT_VERSION  # Add format version to utilize.json
         op_count = len(processed_data['operations'])
         param_count = len(processed_data['components']['parameters'])
         notes.append(f"Extracted {op_count} operations and {param_count} reusable parameters.")
@@ -159,7 +161,7 @@ def main():
 
                 rank = get_rank(service_name)
                 metadata_content: dict[str, Any] = {
-                    "format_version": 3,
+                    "format_version": FORMAT_VERSION,
                     "first_accessed": first_accessed_time,
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                     "api_reference": url,
@@ -208,7 +210,7 @@ def main():
 
     if service_registry:
         logging.info(f"Writing global service registry to {SERVICES_JSON_PATH}...")
-        SERVICES_JSON_PATH.write_text(json.dumps(service_registry, indent=2))
+        SERVICES_JSON_PATH.write_text(json.dumps(service_registry, option=json.OPT_INDENT_2).decode("utf-8"))
 
     # Generate authentication notice file
     AUTH_NOTICE_PATH = REGISTRY_DIR / "AUTH_NOTICE.md"

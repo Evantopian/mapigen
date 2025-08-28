@@ -6,7 +6,8 @@ import logging
 from typing import Any, Optional
 
 from mapigen.tools.utils import load_spec, count_openapi_operations
-from mapigen.cache.storage import load_service_from_disk    
+from mapigen.cache.storage import load_service_from_disk
+from mapigen.tools.populate_data import FORMAT_VERSION    
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
@@ -72,8 +73,8 @@ def main():
             failures.append("Missing metadata.yml file.")
         else:
             metadata: dict[str, Any] = yaml.safe_load(metadata_path.read_text())
-            if metadata.get("format_version") != 2:
-                failures.append("Incorrect format_version in metadata.yml (expected 2).")
+            if metadata.get("format_version") != FORMAT_VERSION:
+                failures.append(f"Incorrect format_version in metadata.yml (expected {FORMAT_VERSION}).")
 
         try:
             processed_data = load_service_from_disk(service_name)

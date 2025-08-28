@@ -1,0 +1,12 @@
+info:
+  title: Integration Test Targets Status
+  description: This file is an auto-generated report on the status of integration
+    tests. Tests may be skipped due to missing credentials in your .env file.
+tests:
+  passed:
+    github:
+      checked:
+      - users/get-by-username
+      token_used:
+      - $GITHUB_TOKEN
+      - $TEST_GITHUB_USER

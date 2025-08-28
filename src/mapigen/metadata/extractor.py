@@ -12,7 +12,7 @@ def get_param_fingerprint(param: dict[str, Any]) -> str:
         k: v for k, v in param.items() 
         if k not in ['example', 'examples']
     }
-    return hashlib.sha256(json.dumps(fingerprint_data, sort_keys=True).encode()).hexdigest()
+    return hashlib.sha256(json.dumps(fingerprint_data)).hexdigest()
 
 def extract_operations_and_components(service: str, spec: dict[str, Any]) -> dict[str, Any]:
     """
@@ -106,5 +106,5 @@ def save_metadata(service: str, data: dict[str, Any], out_dir: Path) -> Path:
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{service}.utilize.json"
-    path.write_text(json.dumps(data, indent=2))
+    path.write_text(json.dumps(data, option=json.OPT_INDENT_2).decode("utf-8"))
     return path
