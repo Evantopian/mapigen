@@ -4,7 +4,6 @@ from typing import Optional, Dict, Any, NamedTuple
 @dataclass
 class RequestOptions:
     timeout: float = 30.0
-    include_metadata: bool = False
     verify_ssl: bool = True
 
 class RequestConfig(NamedTuple):

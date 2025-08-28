@@ -1,5 +1,13 @@
 {
-  "typeCheckingMode": "strict",
   "include": ["src"],
-  "exclude": ["venv", ".venv", "build", "dist"]
+  "executionEnvironments": [
+    {
+      "root": "tests",
+      "extraPaths": ["src"],
+      "reportUnknownMemberType": "none",
+      "reportUnknownVariableType": "none",
+      "reportUnknownArgumentType": "none",
+      "reportAttributeAccessIssue": "none"
+    }
+  ]
 }

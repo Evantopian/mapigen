@@ -44,16 +44,20 @@ def test_sync_create_and_list_messages(client: Mapi):
     """Tests creating a message and then listing it, synchronously."""
     print("--- Testing: Push Message (Sync) ---")
     content = "Hello from the Mapigen SDK! (Sync Integration Test)"
-    response = client.discord.create_message(channel_id=TEST_CHANNEL_ID, content=content)
+    response_wrapper = client.discord.create_message(channel_id=TEST_CHANNEL_ID, content=content)
     
-    assert response is not None
+    assert response_wrapper is not None
+    assert response_wrapper.get('data') is not None
+    response = response_wrapper['data']
     assert response.get('content') == content
     print(f"Message sent! ID: {response.get('id')}")
 
     print("\n--- Testing: Get Channel (Sync) ---")
-    channel_info = client.discord.get_channel(channel_id=TEST_CHANNEL_ID)
+    channel_info_wrapper = client.discord.get_channel(channel_id=TEST_CHANNEL_ID)
     
-    assert channel_info is not None
+    assert channel_info_wrapper is not None
+    assert channel_info_wrapper.get('data') is not None
+    channel_info = channel_info_wrapper['data']
     assert channel_info.get('id') == TEST_CHANNEL_ID
     print(f"Successfully retrieved channel info: {channel_info.get('name')}")
 
@@ -63,15 +67,19 @@ async def test_async_create_and_list_messages(client: Mapi):
     """Tests creating a message and then listing it, asynchronously."""
     print("\n--- Testing: Push Message (Async) ---")
     content = "Hello from the Mapigen SDK! (Async Integration Test)"
-    response = await client.discord.create_message.aexecute(channel_id=TEST_CHANNEL_ID, content=content)
+    response_wrapper = await client.discord.create_message.aexecute(channel_id=TEST_CHANNEL_ID, content=content)
     
-    assert response is not None
+    assert response_wrapper is not None
+    assert response_wrapper.get('data') is not None
+    response = response_wrapper['data']
     assert response.get('content') == content
     print(f"Message sent! ID: {response.get('id')}")
 
     print("\n--- Testing: Get Channel (Async) ---")
-    channel_info = await client.discord.get_channel.aexecute(channel_id=TEST_CHANNEL_ID)
+    channel_info_wrapper = await client.discord.get_channel.aexecute(channel_id=TEST_CHANNEL_ID)
     
-    assert channel_info is not None
+    assert channel_info_wrapper is not None
+    assert channel_info_wrapper.get('data') is not None
+    channel_info = channel_info_wrapper['data']
     assert channel_info.get('id') == TEST_CHANNEL_ID
     print(f"Successfully retrieved channel info: {channel_info.get('name')}")

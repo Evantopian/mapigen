@@ -151,12 +151,11 @@ class Mapi:
         return RequestConfig(method=op_details["method"], url=full_url, params=query_params,
                            headers=headers, json_body=body_params, options=options)
 
-    def execute(self, service: str, operation: str, 
-                include_metadata: bool = False, **kwargs: Any) -> Union[Dict[str, Any], Dict[str, Union[Dict[str, Any], ResponseMetadata]]]:
+    def execute(self, service: str, operation: str, **kwargs: Any) -> Dict[str, Union[Dict[str, Any], ResponseMetadata, None]]:
         start_time = time.time()
         response: Optional[Response] = None
         try:
-            config = self._prepare_request_config(service, operation, RequestOptions(include_metadata=include_metadata), **kwargs)
+            config = self._prepare_request_config(service, operation, RequestOptions(), **kwargs)
             request_kwargs: Dict[str, Any] = {
                 "method": config.method, "url": config.url, "params": config.params,
                 "headers": config.headers, "timeout": config.options.timeout, "auth": self.auth,
@@ -166,23 +165,17 @@ class Mapi:
 
             response = self.http_client.request(**request_kwargs)
             result = response.json()
-
-            if include_metadata:
-                return {"data": result, "metadata": self._create_metadata(service, operation, start_time, response)}
-            return result
+            return {"data": result, "metadata": self._create_metadata(service, operation, start_time, response)}
         except Exception as e:
             response = getattr(e, 'response', None)
             log.error("request_failed", service=service, operation=operation, error=str(e), exc_info=True)
-            if include_metadata:
-                return {"data": None, "metadata": self._create_metadata(service, operation, start_time, response, e)}
-            raise RequestError(f"Request failed: {str(e)}", service=service, operation=operation) from e
+            return {"data": None, "metadata": self._create_metadata(service, operation, start_time, response, e)}
 
-    async def aexecute(self, service: str, operation: str, 
-                      include_metadata: bool = False, **kwargs: Any) -> Union[Dict[str, Any], Dict[str, Union[Dict[str, Any], ResponseMetadata]]]:
+    async def aexecute(self, service: str, operation: str, **kwargs: Any) -> Dict[str, Union[Dict[str, Any], ResponseMetadata, None]]:
         start_time = time.time()
         response: Optional[Response] = None
         try:
-            config = self._prepare_request_config(service, operation, RequestOptions(include_metadata=include_metadata), **kwargs)
+            config = self._prepare_request_config(service, operation, RequestOptions(), **kwargs)
             request_kwargs: Dict[str, Any] = {
                 "method": config.method, "url": config.url, "params": config.params,
                 "headers": config.headers, "timeout": config.options.timeout, "auth": self.auth,
@@ -192,13 +185,8 @@ class Mapi:
 
             response = await self.http_client.arequest(**request_kwargs)
             result = response.json()
-
-            if include_metadata:
-                return {"data": result, "metadata": self._create_metadata(service, operation, start_time, response)}
-            return result
+            return {"data": result, "metadata": self._create_metadata(service, operation, start_time, response)}
         except Exception as e:
             response = getattr(e, 'response', None)
             log.error("request_failed", service=service, operation=operation, error=str(e), exc_info=True)
-            if include_metadata:
-                return {"data": None, "metadata": self._create_metadata(service, operation, start_time, response, e)}
-            raise RequestError(f"Request failed: {str(e)}", service=service, operation=operation) from e
+            return {"data": None, "metadata": self._create_metadata(service, operation, start_time, response, e)}

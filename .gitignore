@@ -216,3 +216,5 @@ __marimo__/
 
 # test data
 pytest_report.xml
+
+tmp/

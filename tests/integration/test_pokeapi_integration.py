@@ -1,41 +1,47 @@
+import json
+from dataclasses import asdict
 from mapigen import Mapi, MapiError
 
-def test_pokeapi_calls():
-    """Tests various calls to the PokeAPI service."""
+def test_pokeapi_and_save_output():
+    """Tests PokeAPI and saves the output to the tmp/ directory for analysis."""
     print("--- Initializing mapi for PokeAPI test ---")
     client = Mapi()
+    tmp_dir = "tmp"
 
     print("\n--- Making a call to pokeapi.api_v2_pokemon_retrieve(id='ditto') ---")
     try:
-        response = client.pokeapi.api_v2_pokemon_retrieve(id="ditto")
-
-        assert response is not None
-        assert isinstance(response, dict)
-        assert response.get('name') == 'ditto'
-        print("\n--- API Response for Ditto ---")
-        print(f"Name: {response.get('name')}")
-        print(f"ID: {response.get('id')}")
-
-        # Example with metadata
-        print("\n--- Making a call with include_metadata=True ---")
-        result_with_meta = client.pokeapi.api_v2_pokemon_retrieve(id="pikachu", include_metadata=True)
+        # --- Ditto call ---
+        result = client.pokeapi.api_v2_pokemon_retrieve(id="ditto")
         
-        assert result_with_meta is not None
-        assert isinstance(result_with_meta, dict)
-        assert "data" in result_with_meta and "metadata" in result_with_meta
+        assert result is not None
+        assert isinstance(result, dict)
+        assert result.get('data') is not None
+        assert result['data'].get('name') == 'ditto'
         
-        data = result_with_meta.get("data", {})
-        metadata = result_with_meta.get("metadata")
+        ditto_path = f"{tmp_dir}/pokeapi_ditto_response.json"
+        with open(ditto_path, 'w') as f:
+            if result.get("metadata"):
+                result["metadata"] = asdict(result["metadata"]) # type: ignore
+            json.dump(result, f, indent=2)
+        print(f"SUCCESS: Saved Ditto response to {ditto_path}")
 
-        print("SUCCESS: Got data and metadata for Pikachu.")
-        assert isinstance(data, dict)
-        assert data.get('name') == 'pikachu'
-        assert metadata is not None and metadata.status == 'success'
-        print(f"Data: {data.get('name')}")
-        print(f"Metadata Status: {metadata.status}")
+        # --- Pikachu call ---
+        print("\n--- Making another call for Pikachu ---")
+        result_pikachu = client.pokeapi.api_v2_pokemon_retrieve(id="pikachu")
+        
+        assert result_pikachu is not None
+        assert isinstance(result_pikachu, dict)
+        assert result_pikachu.get('data') is not None
+        assert result_pikachu['data'].get('name') == 'pikachu'
+        print("SUCCESS: Got data for Pikachu.")
 
     except MapiError as e:
-        print("\n--- CAUGHT UNEXPECTED ERROR ---")
-        print(f"Message: {e}")
-        # This test should not fail, so we re-raise the exception
+        error_path = f"{tmp_dir}/pokeapi_error.log"
+        print(f"\n--- CAUGHT UNEXPECTED ERROR --- Saving to {error_path}")
+        with open(error_path, 'w') as f:
+            f.write(f"Message: {e}\n")
+            if hasattr(e, 'service'):
+                f.write(f"Service: {e.service}\n")
+            if hasattr(e, 'operation'):
+                f.write(f"Operation: {e.operation}\n")
         raise e

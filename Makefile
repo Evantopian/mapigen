@@ -12,14 +12,11 @@ help: ## Show this help message
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
 lint: ## Run ruff linter
+
 	ruff check .
 
-test: test-report ## Run pytest with custom reporting
-
-test-report:
-	@echo "Running tests and generating report..."
-	@pytest --junitxml=pytest_report.xml || true
-	@$(PYTHON) utils/generate_integration_report.py
+test: ## Run pytest
+	pytest
 
 
 populate: ## Populate using cached data
@@ -35,13 +32,18 @@ validate: ## Validate populated data
 	$(TOOLS).validate_data
 	$(TOOLS).deep_validate
 
+
+show-format: ## Display the standard SDK response format                                                               │
+	@$(PYTHON) utils/show_format.py                                                                                    │
+
+
 clean: ## Remove all generated data files (utilize and notice files)
 	find src/mapigen/data -type f -name "*.utilize.json*" -delete
 	find src/mapigen/registry -type f -name "AUTH_NOTICE.md" -delete
 	find . -type f -name "services.json" -delete
 
 #clean: ## Remove populated data
-#	rm -rf src/mapigen/data
+#\trm -rf src/mapigen/data
 
 clean-openapi: ## Remove only OpenAPI artifacts
 	find src/mapigen/data -type f -name "*.openapi.*" -delete
