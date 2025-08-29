@@ -1,75 +1,62 @@
 """Parameter validation using JSON Schema."""
 from __future__ import annotations
 from typing import Any
+import importlib.util
+import zstandard as zstd
+from pathlib import Path
 
-from jsonschema import validate
+import msgspec
 
+from ..client.exceptions import MapiError
+
+def _import_schema_module(service_name: str):
+    """Dynamically imports the _schemas.py.zst module for a service."""
+    data_dir = Path(__file__).resolve().parent.parent / "data"
+    compressed_path = data_dir / service_name / f"{service_name}_schemas.py.zst"
+    
+    if not compressed_path.exists():
+        # Fallback to uncompressed for debugging
+        uncompressed_path = data_dir / service_name / f"{service_name}_schemas.py"
+        if not uncompressed_path.exists():
+            raise ImportError(f"Schema file not found for service: {service_name}")
+        
+        spec = importlib.util.spec_from_file_location(f"{service_name}_schemas", uncompressed_path)
+        if spec is None:
+            raise ImportError(f"Could not create spec from file: {uncompressed_path}")
+        module = importlib.util.module_from_spec(spec)
+        if spec.loader is None:
+            raise ImportError(f"Spec loader is None for file: {uncompressed_path}")
+        spec.loader.exec_module(module)
+        return module
+
+    dctx = zstd.ZstdDecompressor()
+    decompressed = dctx.decompress(compressed_path.read_bytes())
+    
+    spec = importlib.util.spec_from_loader(f"{service_name}_schemas", loader=None)
+    if spec is None:
+        raise ImportError(f"Could not create spec from loader for service: {service_name}")
+    module = importlib.util.module_from_spec(spec)
+    exec(decompressed, module.__dict__)
+    return module
 
 
 def build_and_validate_parameters(
-    service_data: dict[str, Any],
+    service_name: str,
     operation_id: str,
     parameters: dict[str, Any],
 ) -> None:
     """
-    Builds a JSON schema from an operation's parameter definitions and validates
-    the provided parameters against it.
-
-    Args:
-        service_data: The full 'utilize.json' data for the service.
-        operation_id: The ID of the operation to validate against.
-        parameters: The user-provided parameters for the API call.
-
-    Raises:
-        ValueError: If the operation is not found.
-        ValidationError: If the provided parameters are invalid.
+    Validates parameters using a dynamically loaded msgspec.Struct.
     """
-    op_details = service_data.get("operations", {}).get(operation_id)
-    if not op_details:
-        raise ValueError(f"Operation '{operation_id}' not found in service data.")
-
-    schema_properties: dict[str, Any] = {}
-    required_params: list[str] = []
-
-    for param_ref in op_details.get("parameters", []):
-        param_details: dict[str, Any]
-        if "$ref" in param_ref:
-            ref_path: str = param_ref["$ref"]
-            component_name: str = ref_path.split("/")[-1]
-            param_details = (
-                service_data.get("components", {})
-                .get("parameters", {})
-                .get(component_name, {})
-            )
-        else:
-            param_details = param_ref
-
-        param_name = param_details.get("name")
-        if not param_name:
-            continue
-
-        # We can extract the schema-related keywords.
-        param_schema = {}
-        for key, value in param_details.items():
-            if key in ["name", "in", "required"]:
-                continue
-            # 'any' is not a valid JSON Schema type. Omitting the type keyword
-            # allows any type, which is the desired behavior.
-            if key == 'type' and value == 'any':
-                continue
-            param_schema[key] = value
+    try:
+        schema_module = _import_schema_module(service_name)
+        struct_name = f"{operation_id.replace('/', '_').replace('-', '_')}_params"
+        struct_class = getattr(schema_module, struct_name)
         
-        schema_properties[param_name] = param_schema
+        # msgspec validates during decoding
+        msgspec.json.decode(msgspec.json.encode(parameters), type=struct_class)
 
-        if param_details.get("required", False):
-            required_params.append(param_name)
-
-    # The final schema to validate against
-    final_schema = {
-        "type": "object",
-        "properties": schema_properties,
-        "required": required_params,
-        "additionalProperties": False,
-    }
-
-    validate(instance=parameters, schema=final_schema)
+    except (ImportError, AttributeError) as e:
+        raise MapiError(f"Schema validation setup failed for {service_name}.{operation_id}: {e}", service=service_name, operation=operation_id, error_type="sdk", original_exception=e) from e
+    except msgspec.ValidationError as e:
+        raise MapiError(f"Parameter validation failed: {e}", service=service_name, operation=operation_id, error_type="validation", original_exception=e) from e

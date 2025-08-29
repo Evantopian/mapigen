@@ -41,6 +41,7 @@ def process_single_service(service_name: str, url: str) -> dict[str, Any]:
 
         processed_data["servers"] = raw_spec.get("servers", [])
         processed_data["format_version"] = FORMAT_VERSION
+        processed_data["service_name"] = service_name
         
         utilize_path = save_metadata(service_name, processed_data, service_data_dir)
 
@@ -49,6 +50,7 @@ def process_single_service(service_name: str, url: str) -> dict[str, Any]:
             "auth_info": extract_auth_info(raw_spec),
             "processed_op_count": len(processed_data["operations"]),
             "utilize_path": utilize_path,
+            "struct_definitions": processed_data["struct_definitions"]
         })
         return metrics
     except Exception as e:

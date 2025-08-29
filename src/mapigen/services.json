@@ -1,38 +1,42 @@
 {
-  "github": {
-    "operation_count": 1063,
-    "auth_types": [
-      "bearer_token",
-      "basic_auth"
-    ],
-    "primary_auth": "bearer_token",
-    "popularity_rank": 1
-  },
-  "discord": {
-    "operation_count": 223,
-    "auth_types": [
-      "api_key",
-      "oauth2"
-    ],
-    "primary_auth": "api_key",
-    "popularity_rank": 2
-  },
-  "pokeapi": {
-    "operation_count": 97,
-    "auth_types": [
-      "basic_auth",
-      "api_key"
-    ],
-    "primary_auth": "basic_auth",
-    "popularity_rank": 3
-  },
-  "stripe": {
-    "operation_count": 570,
-    "auth_types": [
-      "basic_auth",
-      "bearer_token"
-    ],
-    "primary_auth": "basic_auth",
-    "popularity_rank": 1
+  "version": "1.0",
+  "generated_at": "2025-08-29T21:20:23.296658+00:00",
+  "services": {
+    "github": {
+      "operation_count": 1064,
+      "popularity_rank": 1,
+      "auth_types": [
+        "bearer_token",
+        "basic_auth"
+      ],
+      "primary_auth": "bearer_token"
+    },
+    "discord": {
+      "operation_count": 223,
+      "popularity_rank": 2,
+      "auth_types": [
+        "api_key",
+        "oauth2"
+      ],
+      "primary_auth": "api_key"
+    },
+    "pokeapi": {
+      "operation_count": 97,
+      "popularity_rank": 3,
+      "auth_types": [
+        "basic_auth",
+        "api_key"
+      ],
+      "primary_auth": "basic_auth"
+    },
+    "stripe": {
+      "operation_count": 570,
+      "popularity_rank": 1,
+      "auth_types": [
+        "basic_auth",
+        "bearer_token"
+      ],
+      "primary_auth": "basic_auth"
+    }
   }
 }

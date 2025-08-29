@@ -1,12 +1,13 @@
 from __future__ import annotations
 import json
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict
 
 import msgspec
 
-from mapigen.models import ServiceInfo
+from mapigen.models import ServiceInfo, ServiceRegistry
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -33,19 +34,27 @@ class RegistryService:
                             primary_auth=metadata.get("primary_auth", "none"),
                             popularity_rank=metadata.get("popularity_rank", 999),
                         )
-                    except msgspec.ValidationError as e:
+                    except (msgspec.ValidationError, TypeError) as e:
                         logging.warning(f"Skipping {service_dir.name} due to invalid metadata: {e}")
         return service_registry
 
-    def save_registry(self, service_registry: Dict[str, ServiceInfo]):
+    def save_registry(self, services: Dict[str, ServiceInfo]):
         """Saves the service registry to a file."""
-        if not service_registry:
+        if not services:
             logging.warning("Service registry is empty. Nothing to save.")
             return
 
         logging.info(f"Writing global service registry to {self.registry_path}...")
+        
+        # Create the top-level registry object
+        full_registry = ServiceRegistry(
+            version="1.0",
+            generated_at=datetime.now(timezone.utc).isoformat(),
+            services=services
+        )
+
         # Convert msgspec.Structs to built-in types for pretty-printing
-        builtins_registry = msgspec.to_builtins(service_registry)
+        builtins_registry = msgspec.to_builtins(full_registry)
         
         # Use standard json library for pretty-printing
         with open(self.registry_path, "w", encoding="utf-8") as f:
