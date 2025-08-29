@@ -1,0 +1,38 @@
+{
+  "github": {
+    "operation_count": 1063,
+    "auth_types": [
+      "bearer_token",
+      "basic_auth"
+    ],
+    "primary_auth": "bearer_token",
+    "popularity_rank": 1
+  },
+  "discord": {
+    "operation_count": 223,
+    "auth_types": [
+      "api_key",
+      "oauth2"
+    ],
+    "primary_auth": "api_key",
+    "popularity_rank": 2
+  },
+  "pokeapi": {
+    "operation_count": 97,
+    "auth_types": [
+      "basic_auth",
+      "api_key"
+    ],
+    "primary_auth": "basic_auth",
+    "popularity_rank": 3
+  },
+  "stripe": {
+    "operation_count": 570,
+    "auth_types": [
+      "basic_auth",
+      "bearer_token"
+    ],
+    "primary_auth": "basic_auth",
+    "popularity_rank": 1
+  }
+}

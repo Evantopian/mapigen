@@ -11,6 +11,7 @@ import msgspec
 
 from mapigen.cache.ranking import get_rank
 from mapigen.metadata.fetcher import fetch_specs_concurrently
+from mapigen.services.registry_service import RegistryService
 from mapigen.tools.pipeline import run_processing_pipeline
 from mapigen.tools.reporting import generate_auth_notice, generate_performance_report
 from mapigen.utils.compression_utils import compress_with_zstd
@@ -39,6 +40,7 @@ def setup_arg_parser() -> argparse.Namespace:
     parser.add_argument("--process-workers", type=int, default=mp.cpu_count(), help="Parallel processing workers.")
     parser.add_argument("--skip-download", action="store_true", help="Skip download, use existing specs.")
     parser.add_argument("--force-reprocess", action="store_true", help="Force reprocessing of all specs.")
+    parser.add_argument("--cache", action="store_true", help="Use cached downloads but force reprocessing.")
     parser.add_argument("--no-compress-utilize", action="store_true", help="Do not compress final utilize.json files.")
     parser.add_argument("--memory-threshold", type=float, default=2048.0, help="Memory threshold in MB to trigger garbage collection.")
     return parser.parse_args()
@@ -96,6 +98,10 @@ def main():
         logging.warning("No sources found. Exiting.")
         return
 
+    if args.cache:
+        args.skip_download = True
+        args.force_reprocess = True
+
     # --- Download Phase ---
     download_results: List[Dict[str, Any]] = []
     if not args.skip_download:
@@ -124,7 +130,6 @@ def main():
 
     # --- Aggregation & Reporting Phase ---
     logging.info("Aggregating results...")
-    service_registry: Dict[str, Any] = {}
     services_requiring_override_fix: list[str] = []
     services_with_active_override: list[str] = []
 
@@ -141,20 +146,9 @@ def main():
                 else:
                     services_requiring_override_fix.append(service_name)
 
-    for service_dir in DATA_DIR.iterdir():
-        if service_dir.is_dir() and (service_dir / "metadata.yml").exists():
-            metadata = msgspec.yaml.decode((service_dir / "metadata.yml").read_text())
-            service_registry[service_dir.name] = {
-                "path": f"data/{service_dir.name}",
-                "operation_count": metadata.get("operation_count", 0),
-                "auth_types": metadata.get("auth_types", []),
-                "primary_auth": metadata.get("primary_auth", "none"),
-                "popularity_rank": metadata.get("popularity_rank", 999),
-            }
-
-    if service_registry:
-        logging.info(f"Writing global service registry to {SERVICES_JSON_PATH}...")
-        SERVICES_JSON_PATH.write_bytes(msgspec.json.encode(service_registry))
+    registry_service = RegistryService(data_dir=DATA_DIR, registry_path=SERVICES_JSON_PATH)
+    service_registry = registry_service.build_registry()
+    registry_service.save_registry(service_registry)
 
     generate_auth_notice(services_requiring_override_fix, services_with_active_override)
     total_duration = time.perf_counter() - overall_start_time
