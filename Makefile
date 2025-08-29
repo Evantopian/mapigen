@@ -42,6 +42,32 @@ validate: ## Validate populated data
 inspector: ## Run inspector utility
 	@$(PYTHON) utils/inspector.py $(filter-out $@,$(MAKECMDGOALS))
 
+profile: ## Run cProfile on the populate script and generate a stats file
+	@echo "Profiling the populate-force command..."
+	PYTHONPATH=src python3 -m cProfile -s cumulative -o populate.prof src/mapigen/tools/populate_data.py
+	@echo "Profiling complete. To view results, run: make view-profile"
+
+view-profile: ## Open the last profiling session in snakeviz
+	snakeviz populate.prof
+
+sCRIPT_PATH ?=
+FILTER ?= mapigen
+ARGS ?=
+
+custom-profile: ## Profile a script. Usage: make custom-profile SCRIPT_PATH=<path> [FILTER=<str>] [ARGS="--arg1 val1"]
+	@if [ -z "$(SCRIPT_PATH)" ]; then \
+		echo "Error: Please specify a script to profile with SCRIPT_PATH=<script_path>"; \
+		exit 1; \
+	fi
+	@echo "Running custom profiler on $(SCRIPT_PATH) with filter='$(FILTER)' and args='$(ARGS)'..."
+	$(PYTHON) utils/profiler.py $(SCRIPT_PATH) --filter $(FILTER) $(ARGS)
+
+test-profile: ## Run pytest with profiling and output stats to console
+	@pytest --profile
+	@echo ""
+	@echo "Profiling complete. For a more detailed, interactive view, run:"
+	@echo "snakeviz prof/combined.prof"
+
 show-format: ## Display the standard SDK response format
 	@$(PYTHON) utils/show_format.py
 

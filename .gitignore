@@ -218,3 +218,4 @@ __marimo__/
 pytest_report.xml
 
 tmp/
+prof/
