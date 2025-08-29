@@ -1,5 +1,4 @@
 import argparse
-import cProfile
 import pstats
 import subprocess
 import sys

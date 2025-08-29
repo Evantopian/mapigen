@@ -1,4 +1,4 @@
-.PHONY: help lint test test-report populate populate-force populate-debug validate clean clean-openapi show-format show-data
+.PHONY: help lint test test-populate populate populate-force populate-debug validate clean clean-openapi show-format show-data
 
 
 # Variables
@@ -9,11 +9,11 @@ TOOLS := $(PYTHON) -m mapigen.tools
 # Default target
 help: ## Show this help message
 	@echo "Available targets:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
-		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$' $(MAKEFILE_LIST) \
+		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $1, $2}'
 
 lint: ## Run ruff linter
-
+	run_shell_command: 
 	ruff check .
 
 test: ## Run pytest. Usage: make test t=tests/path/to/test.py
@@ -25,15 +25,19 @@ test: ## Run pytest. Usage: make test t=tests/path/to/test.py
 			pytest -s $(t); \
 	fi
 
+test-populate: populate-force ## Run integration tests after a fresh data population
+	@echo "Running integration tests on populated data..."
+	pytest -s tests/integration/
 
-populate: ## Populate using cached data
-	$(TOOLS).populate_data --cache
 
-populate-force: ## Force populate without cache
+populate: ## Populate data, skipping already processed specs
 	$(TOOLS).populate_data
 
-populate-debug: ## Populate in debug mode (keep raw specs, no compression)
-	$(TOOLS).populate_data --keep-raw-specs --no-compress
+populate-force: ## Force populate all specs, reprocessing everything
+	$(TOOLS).populate_data --force-reprocess
+
+populate-debug: ## Populate in debug mode (no compression on utilize.json files)
+	$(TOOLS).populate_data --no-compress-utilize
 
 validate: ## Validate populated data
 	$(TOOLS).validate_data
@@ -44,7 +48,7 @@ inspector: ## Run inspector utility
 
 profile: ## Run cProfile on the populate script and generate a stats file
 	@echo "Profiling the populate-force command..."
-	PYTHONPATH=src python3 -m cProfile -s cumulative -o populate.prof src/mapigen/tools/populate_data.py
+	PYTHONPATH=src python3 -m cProfile -s cumulative -o populate.prof src/mapigen/tools/populate_data.py --force-reprocess
 	@echo "Profiling complete. To view results, run: make view-profile"
 
 view-profile: ## Open the last profiling session in snakeviz
@@ -56,8 +60,8 @@ ARGS ?=
 
 custom-profile: ## Profile a script. Usage: make custom-profile SCRIPT_PATH=<path> [FILTER=<str>] [ARGS="--arg1 val1"]
 	@if [ -z "$(SCRIPT_PATH)" ]; then \
-		echo "Error: Please specify a script to profile with SCRIPT_PATH=<script_path>"; \
-		exit 1; \
+			echo "Error: Please specify a script to profile with SCRIPT_PATH=<script_path>"; \
+			exit 1; \
 	fi
 	@echo "Running custom profiler on $(SCRIPT_PATH) with filter='$(FILTER)' and args='$(ARGS)'..."
 	$(PYTHON) utils/profiler.py $(SCRIPT_PATH) --filter $(FILTER) $(ARGS)
