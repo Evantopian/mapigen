@@ -1,9 +1,30 @@
+from __future__ import annotations
 from pathlib import Path
-from typing import Any, Mapping, cast
-from openapi_spec_validator import validate_spec
-from mapigen.metadata import load_spec
+from typing import Any, Mapping, Optional
 
-def normalize_spec(path: Path) -> Mapping[str, Any]:
-    spec: dict[str, Any] = load_spec(path)
-    validate_spec(cast(Mapping[Any, Any], spec))
+import msgspec
+
+from mapigen.utils.compression_utils import decompress_zstd
+
+def normalize_spec(
+    path: Optional[Path] = None, 
+    compressed_content: Optional[bytes] = None
+) -> Mapping[str, Any]:
+    """
+    Loads and parses an OpenAPI spec from a file path or compressed content.
+    """
+    if not path and not compressed_content:
+        raise ValueError("Either 'path' or 'compressed_content' must be provided.")
+
+    spec: dict[str, Any] = {}
+    if compressed_content:
+        decompressed = decompress_zstd(compressed_content)
+        spec = msgspec.json.decode(decompressed)
+    elif path:
+        content = path.read_bytes()
+        if path.suffix in (".yaml", ".yml"):
+            spec = msgspec.yaml.decode(content)
+        else:
+            spec = msgspec.json.decode(content)
+    
     return spec

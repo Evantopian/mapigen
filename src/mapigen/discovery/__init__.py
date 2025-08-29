@@ -1,6 +1,8 @@
 """Discovery client for services and operations."""
 from __future__ import annotations
-from typing import Any, List, Optional, Dict
+from typing import List, Optional
+
+from mapigen.models import ServiceInfo, Operation
 
 from . import services
 from . import operations
@@ -19,7 +21,7 @@ class DiscoveryClient:
         return services.service_exists(service)
 
     @staticmethod
-    def get_service_info(service: str) -> dict[str, Any]:
+    def get_service_info(service: str) -> ServiceInfo:
         return services.get_service_info(service)
 
     @staticmethod
@@ -40,5 +42,5 @@ class DiscoveryClient:
         return operations.operation_exists(service, operation)
 
     @staticmethod
-    def get_operation(service: str, operation: str) -> Optional[Dict[str, Any]]:
+    def get_operation(service: str, operation: str) -> Optional[Operation]:
         return operations.get_operation(service, operation)

@@ -211,11 +211,14 @@ __marimo__/
 *.lz4
 *metadata.yml
 *openapi.yml
+*.zst
 *openapi.json
 *utilize.json
+*schemas.py
 
 # test data
 pytest_report.xml
 
 tmp/
 prof/
+populate.prof

@@ -1,5 +1,4 @@
 import argparse
-import cProfile
 import pstats
 import subprocess
 import sys
@@ -54,7 +53,7 @@ def main():
             profile_output_path,
         ] + script_args
 
-        print(f"--- Profiling Command ---")
+        print("--- Profiling Command ---")
         print(" ".join(command))
         print()
 

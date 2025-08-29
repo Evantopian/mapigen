@@ -1,11 +1,12 @@
 # Authentication Override Notice
 
-This notice provides a summary of authentication configurations for the processed services.
+This document tracks which API specifications have had their authentication information manually overridden.
 
----
+## Services with Active Overrides
 
-### Active Overrides
-
-The following services have incomplete OpenAPI specifications. Manual authentication overrides were successfully found and applied from `src/mapigen/registry/overrides.json`. No action is needed for these services.
-
+The following services are using authentication details from `overrides.json`:
 - `github`
+
+## Services Requiring Attention
+
+No services appear to require an authentication override at this time.
