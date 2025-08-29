@@ -3,7 +3,7 @@ import json
 from mapigen import Mapi
 from mapigen.cache.storage import load_service_from_disk
 import msgspec
-from mapigen.models import Parameter, ParameterRef
+from mapigen.models import ParameterRef
 
 from typing import Any
 

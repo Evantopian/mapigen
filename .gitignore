@@ -214,7 +214,7 @@ __marimo__/
 *.zst
 *openapi.json
 *utilize.json
-
+*schemas.py
 
 # test data
 pytest_report.xml
