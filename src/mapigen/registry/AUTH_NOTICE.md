@@ -6,6 +6,5 @@ This notice provides a summary of authentication configurations for the processe
 
 ### Active Overrides
 
-The following services have incomplete OpenAPI specifications. Manual authentication overrides were successfully found and applied from `src/mapigen/registry/overrides.json`. No action is needed for these services.
+All services were successfully discovered and their OpenAPI specifications fully resolved. Authentication overrides from `src/mapigen/registry/overrides.json` were applied where relevant. No manual action is required.
 
-- `github`
