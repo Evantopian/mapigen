@@ -1,5 +1,5 @@
 import msgspec
-from typing import Optional
+from typing import Any, Optional, List
 
 class api_v2_ability_list_params(msgspec.Struct):
     limit: Optional[int] = None

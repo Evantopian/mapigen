@@ -1,5 +1,5 @@
 import msgspec
-from typing import Optional, List, Any
+from typing import Any, Optional, List
 
 class meta_root_params(msgspec.Struct):
     pass

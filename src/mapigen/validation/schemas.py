@@ -31,12 +31,42 @@ def _import_schema_module(service_name: str):
 
     dctx = zstd.ZstdDecompressor()
     decompressed = dctx.decompress(compressed_path.read_bytes())
+    schema_code = decompressed.decode('utf-8')
+    
+    # Debug: Print the schema content to see what's wrong
+    print("=== DEBUG: Schema content ===")
+    print(schema_code)
+    print("=== END DEBUG ===")
     
     spec = importlib.util.spec_from_loader(f"{service_name}_schemas", loader=None)
     if spec is None:
         raise ImportError(f"Could not create spec from loader for service: {service_name}")
     module = importlib.util.module_from_spec(spec)
-    exec(decompressed, module.__dict__)
+
+    try:
+        # Create a clean execution environment with all necessary imports
+        from typing import Optional, List, Dict, Union, Any
+        
+        module_globals = {
+            '__name__': f"{service_name}_schemas",
+            '__file__': str(compressed_path),
+            '__builtins__': __builtins__,
+            'msgspec': msgspec,
+            'Any': Any,
+            'Optional': Optional,
+            'List': List,
+            'Dict': Dict,
+            'Union': Union,
+        }
+        
+        # Execute the schema code with proper globals
+        exec(schema_code, module_globals, module.__dict__)
+                
+    except Exception as e:
+        print(f"Error executing schema code: {e}")
+        print(f"Schema code (first 500 chars):\n{schema_code[:500]}...")
+        raise
+        
     return module
 
 

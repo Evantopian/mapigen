@@ -1,5 +1,5 @@
 import msgspec
-from typing import Optional, Any
+from typing import Any, Optional, List
 
 class get_my_application_params(msgspec.Struct):
     pass
