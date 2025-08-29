@@ -1,5 +1,5 @@
 import msgspec
-from typing import Optional, List, Any, Dict
+from typing import Any, Optional, List
 
 class GetAccount_params(msgspec.Struct):
     expand: Optional[List[str]] = None

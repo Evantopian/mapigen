@@ -95,6 +95,7 @@ show-data: ## Pretty-print a response file. Usage: make show-data tmp/file.json
 
 clean: ## Remove all generated data files (utilize and notice files)
 	find src/mapigen/data -type f -name "*.utilize.json*" -delete
+	find src/mapigen/data -type f -name "*.zst*" -delete
 	find src/mapigen/registry -type f -name "AUTH_NOTICE.md" -delete
 	find . -type f -name "services.json" -delete
 

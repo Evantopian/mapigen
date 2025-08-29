@@ -37,7 +37,9 @@ def map_type(param_schema: dict[str, Any]) -> str:
 
 def generate_struct_definitions(operations: Dict[str, Any], components: Dict[str, Any]) -> str:
     """Generates msgspec.Struct definitions for all operations."""
-    structs = ["import msgspec", "from typing import Optional, List, Any, Dict", ""]
+    structs = ["import msgspec", "from typing import Any, Optional, List", ""]
+
+
     for op_id, op_data in operations.items():
         struct_name = f"{op_id.replace('/', '_').replace('-', '_')}_params"
         structs.append(f"class {struct_name}(msgspec.Struct):")
