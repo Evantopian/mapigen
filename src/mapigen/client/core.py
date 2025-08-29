@@ -13,14 +13,14 @@ from niquests.models import Response
 from ..auth_helpers import AuthHelpers
 from ..discovery import DiscoveryClient
 from ..http.transport import HttpTransport
+import msgspec
+from ..models import ServiceData, Parameter, ParameterRef
 from ..proxy import ServiceProxy
-from ..tools.utils import resolve_parameter
 from ..cache.storage import load_service_from_disk
 from ..validation.schemas import build_and_validate_parameters
-from jsonschema import ValidationError as JsonSchemaValidationError
 
 from .config import RequestOptions, RequestConfig, ResponseMetadata
-from .exceptions import MapiError, ServiceNotFoundError, OperationNotFoundError, ValidationError, RequestError
+from .exceptions import MapiError
 
 # Configure structlog
 structlog.configure(
@@ -45,6 +45,7 @@ class Mapi:
         auth: Optional[Union[AuthBase, tuple[Any, Any], str]] = None,
         default_timeout: float = 30.0,
         log_level: str = "INFO",
+        validate_on_execute: bool = True,
         **transport_kwargs: Any,
     ) -> None:
         self.base_url = base_url
@@ -53,6 +54,7 @@ class Mapi:
         self.http_client = HttpTransport(**transport_kwargs)
         self.discovery = DiscoveryClient()
         self._services = self.discovery.list_services()
+        self.validate_on_execute = validate_on_execute
         logging.basicConfig(
             level=getattr(logging, log_level.upper(), logging.INFO),
             stream=sys.stdout,
@@ -67,19 +69,17 @@ class Mapi:
         return object.__getattribute__(self, name)
 
     @lru_cache(maxsize=128)
-    def _load_service_data(self, service_name: str) -> Dict[str, Any]:
+    def _load_service_data(self, service_name: str) -> ServiceData:
         try:
-            data = load_service_from_disk(service_name)
-            if data.get("format_version") != 3:
-                raise MapiError(
-                    f"Unsupported data format version for service '{service_name}'. "
-                    f"Expected version 3, but found {data.get('format_version')}. "
-                    f"Please regenerate the service data."
-                )
-            return data
+            # The data is now decoded into a ServiceData object with version validation
+            return load_service_from_disk(service_name)
         except FileNotFoundError as e:
-            log.error("service_not_found", service=service_name, exc_info=e)
-            raise ServiceNotFoundError(f"Service '{service_name}' not found", service=service_name) from e
+            raise MapiError(f"Service '{service_name}' not found", service=service_name, error_type="sdk", original_exception=e) from e
+        except msgspec.ValidationError as e:
+            raise MapiError(
+                f"Service data for '{service_name}' is invalid. "
+                f"Please regenerate the service data. Error: {e}", service=service_name, error_type="sdk", original_exception=e
+            ) from e
 
     def _classify_error(self, exception: Exception, response: Optional[Response] = None) -> tuple[str, str]:
         if isinstance(exception, RequestException):
@@ -92,7 +92,7 @@ class Mapi:
                 return "server_error", "transient"
             return "network_error", "transient"
         if isinstance(exception, MapiError):
-            return "sdk_error", "client"
+            return exception.error_type, "client"
         return "unknown_error", "system"
 
     def _create_metadata(
@@ -111,41 +111,54 @@ class Mapi:
 
     def _prepare_request_config(self, service: str, operation: str, 
                                request_options: Optional[RequestOptions] = None, **kwargs: Any) -> RequestConfig:
+        if self.validate_on_execute:
+            try:
+                build_and_validate_parameters(service, operation, kwargs)
+            except MapiError as e:
+                log.error("validation_failed", service=service, operation=operation, error=str(e))
+                raise e
+
         service_data = self._load_service_data(service)
-        try:
-            build_and_validate_parameters(service_data, operation, kwargs)
-        except JsonSchemaValidationError as e:
-            log.error("validation_failed", service=service, operation=operation, error=e.message)
-            raise ValidationError(f"Parameter validation failed: {e.message}", service=service, operation=operation) from e
-
-        op_details = service_data.get("operations", {}).get(operation)
+        op_details = service_data.operations.get(operation)
         if not op_details:
-            raise OperationNotFoundError(f"Operation '{operation}' not found", service=service, operation=operation)
+            raise MapiError(f"Operation '{operation}' not found", service=service, operation=operation, error_type="sdk")
 
-        base_url = self.base_url or next((s.get("url") for s in service_data.get("servers", [])), None)
+        base_url = self.base_url or (service_data.servers[0].url if service_data.servers else None)
         if not base_url:
-            raise RequestError(f"No server URL found for service '{service}'", service=service, operation=operation)
+            raise MapiError(f"No server URL found for service '{service}'", service=service, operation=operation, error_type="sdk")
 
         path_params, query_params, body_params, headers = {}, {}, {}, {}
-        for param_ref in op_details.get("parameters", []):
-            param_details = resolve_parameter(param_ref, service_data)
+        
+        for param_union in op_details.parameters:
+            param_details: Parameter
+            if isinstance(param_union, ParameterRef):
+                # Resolve the reference from the components
+                param_details = service_data.components.parameters[param_union.component_name]
+            else:
+                # It's an inline parameter
+                param_details = param_union
 
-            param_name = param_details.get("name")
-            if param_name in kwargs:
-                value = kwargs[param_name]
-                param_in = param_details.get("in")
-                if param_in == "path":
-                    path_params[param_name] = value
-                elif param_in == "query":
-                    query_params[param_name] = value
-                elif param_in == "body":
-                    body_params[param_name] = value
+            if param_details.name in kwargs:
+                value = kwargs[param_details.name]
+                if param_details.in_ == "path":
+                    path_params[param_details.name] = value
+                elif param_details.in_ == "query":
+                    query_params[param_details.name] = value
+                # Note: 'body' params are handled differently in OpenAPI 3 vs 2.
+                # This implementation assumes a simplified model where named body params are collected.
+                # A more robust implementation would handle requestBody schemas.
+                elif param_details.in_ == "body":
+                    body_params[param_details.name] = value
 
-        final_path = op_details.get("path", "").format(**path_params)
+        try:
+            final_path = op_details.path.format(**path_params)
+        except KeyError as e:
+            raise MapiError(f"Missing required path parameter: {e}", service=service, operation=operation, error_type="validation", original_exception=e) from e
+            
         full_url = f"{base_url.rstrip('/')}{final_path}"
         options = request_options or RequestOptions(timeout=self.default_timeout)
         
-        return RequestConfig(method=op_details["method"], url=full_url, params=query_params,
+        return RequestConfig(method=op_details.method, url=full_url, params=query_params,
                            headers=headers, json_body=body_params, options=options)
 
     def execute(self, service: str, operation: str, **kwargs: Any) -> Dict[str, Union[Dict[str, Any], ResponseMetadata, None]]:

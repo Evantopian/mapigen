@@ -2,19 +2,22 @@
 from __future__ import annotations
 import logging
 from pathlib import Path
-from typing import Any
 
 import msgspec
 import zstandard as zstd
 
-def _load_zstd_metadata(zst_path: Path) -> dict[str, Any]:
+from ..models import ServiceData
+
+
+def _load_zstd_metadata(zst_path: Path) -> ServiceData:
     """Loads and decompresses metadata from a zstd file."""
     dctx = zstd.ZstdDecompressor()
     compressed = zst_path.read_bytes()
     decompressed = dctx.decompress(compressed)
-    return msgspec.json.decode(decompressed)
+    return msgspec.json.decode(decompressed, type=ServiceData)
 
-def load_service_from_disk(service_name: str) -> dict[str, Any]:
+
+def load_service_from_disk(service_name: str) -> ServiceData:
     """Loads the metadata for a single service, checking for uncompressed or compressed files."""
     data_dir = Path(__file__).resolve().parent.parent / "data"
     service_dir = data_dir / service_name
@@ -24,7 +27,7 @@ def load_service_from_disk(service_name: str) -> dict[str, Any]:
 
     if uncompressed_path.exists():
         logging.info(f"Loading uncompressed service data for '{service_name}' from disk.")
-        return msgspec.json.decode(uncompressed_path.read_bytes())
+        return msgspec.json.decode(uncompressed_path.read_bytes(), type=ServiceData)
     
     if compressed_path.exists():
         logging.info(f"Loading compressed service data for '{service_name}' from disk.")

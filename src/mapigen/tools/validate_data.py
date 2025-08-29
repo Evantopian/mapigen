@@ -8,7 +8,8 @@ from typing import Any, List, Dict
 
 from tqdm import tqdm
 
-from mapigen.tools.utils import load_spec, count_openapi_operations, resolve_parameter
+from mapigen.models import ServiceData, Parameter, ParameterRef
+from mapigen.tools.utils import load_spec, count_openapi_operations
 from mapigen.cache.storage import load_service_from_disk
 from mapigen.tools.populate_data import FORMAT_VERSION
 
@@ -19,11 +20,11 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
 DATA_DIR = ROOT_DIR / "src" / "mapigen" / "data"
 
-def validate_operations_and_refs(data: dict[str, Any], service_name: str) -> list[str]:
+def validate_operations_and_refs(data: ServiceData, service_name: str) -> list[str]:
     """Validates the integrity of operations and their parameter references."""
     errors: list[str] = []
-    operations = data.get("operations", {})
-    components = data.get("components", {}).get("parameters", {})
+    operations = data.operations
+    components = data.components.parameters
 
     if not operations:
         errors.append("No 'operations' block found.")
@@ -31,16 +32,16 @@ def validate_operations_and_refs(data: dict[str, Any], service_name: str) -> lis
         logging.warning(f"[{service_name}] No reusable 'components' found. This may be expected.")
 
     for op_id, op_data in operations.items():
-        if not all(k in op_data for k in ["service", "path", "method", "parameters"]):
+        if not all([op_data.service, op_data.path, op_data.method, op_data.parameters is not None]):
             errors.append(f"Operation '{op_id}' is missing one of [service, path, method, parameters].")
         
-        for param_ref in op_data.get("parameters", []):
-            param_details = resolve_parameter(param_ref, data)
-            if not param_details:
-                errors.append(f"Operation '{op_id}' has a broken or malformed $ref: '{param_ref.get('$ref')}'")
-            elif "$ref" not in param_ref:  # It was an inline parameter
-                if not all(k in param_details for k in ["name", "in", "type"]):
-                    errors.append(f"Inline parameter in '{op_id}' is missing one of [name, in, type].")
+        for param in op_data.parameters:
+            if isinstance(param, ParameterRef):
+                if param.component_name not in components:
+                    errors.append(f"Operation '{op_id}' has a broken $ref: '{param.ref}'")
+            elif isinstance(param, Parameter):
+                if not all([param.name, param.in_, param.schema_]):
+                    errors.append(f"Inline parameter in '{op_id}' is missing one of [name, in, schema].")
     return errors
 
 def generate_report(results: List[Dict[str, Any]], total_duration: float):
@@ -101,7 +102,7 @@ def main():
             else:
                 raw_spec: dict[str, Any] = load_spec(raw_spec_files[0])
                 raw_op_count = count_openapi_operations(raw_spec)
-                processed_op_count: int = len(processed_data.get("operations", {}))
+                processed_op_count: int = len(processed_data.operations)
                 if raw_op_count != processed_op_count:
                     failures.append(f"Op count mismatch: Raw spec {raw_op_count}, processed {processed_op_count}.")
 

@@ -39,13 +39,20 @@ populate-force: ## Force populate all specs, reprocessing everything
 	$(TOOLS).populate_data --force-reprocess
 
 populate-debug: ## Populate in debug mode (no compression on utilize.json files)
-	$(TOOLS).populate_data --no-compress-utilize
+	$(TOOLS).populate_data --no-compress-utilize $(ARGS)
 
 validate: ## Run light validation on populated data
 	$(TOOLS).validate_data
 
-deep-validate: ## Run deep validation on populated data (slow)
-	$(TOOLS).deep_validate
+deep-validate: ## Run deep validation on populated data (slow). Usage: make deep-validate s=service_name
+	@if [ -z "$(s)" ]; then \
+			echo "Running deep validation on all services..."; \
+			$(TOOLS).deep_validate; \
+	else \
+			echo "Running deep validation on service: $(s)"; \
+			$(TOOLS).deep_validate $(s); \
+	fi
+
 
 validate-all: validate deep-validate ## Run all validation checks
 	@echo "All validation checks complete."
