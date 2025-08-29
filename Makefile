@@ -13,7 +13,6 @@ help: ## Show this help message
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $1, $2}'
 
 lint: ## Run ruff linter
-	run_shell_command: 
 	ruff check .
 
 test: ## Run pytest. Usage: make test t=tests/path/to/test.py
@@ -25,13 +24,16 @@ test: ## Run pytest. Usage: make test t=tests/path/to/test.py
 			pytest -s $(t); \
 	fi
 
-test-populate: populate-force ## Run integration tests after a fresh data population
-	@echo "Running integration tests on populated data..."
-	pytest -s tests/integration/
+test-populate: ## Run integration tests after a fresh data population
+	@echo "Populating data..."
+	@$(TOOLS).populate_data --force-reprocess && \
+		echo "Waiting for filesystem..." && sleep 1 && \
+		echo "Running integration tests on populated data..." && \
+		pytest -s tests/integration/
 
 
-populate: ## Populate data, skipping already processed specs
-	$(TOOLS).populate_data
+populate: ## Populate data, skipping already processed specs. Pass args with ARGS="--arg1 val1"
+	$(TOOLS).populate_data $(ARGS)
 
 populate-force: ## Force populate all specs, reprocessing everything
 	$(TOOLS).populate_data --force-reprocess
@@ -39,9 +41,14 @@ populate-force: ## Force populate all specs, reprocessing everything
 populate-debug: ## Populate in debug mode (no compression on utilize.json files)
 	$(TOOLS).populate_data --no-compress-utilize
 
-validate: ## Validate populated data
+validate: ## Run light validation on populated data
 	$(TOOLS).validate_data
+
+deep-validate: ## Run deep validation on populated data (slow)
 	$(TOOLS).deep_validate
+
+validate-all: validate deep-validate ## Run all validation checks
+	@echo "All validation checks complete."
 
 inspector: ## Run inspector utility
 	@$(PYTHON) utils/inspector.py $(filter-out $@,$(MAKECMDGOALS))
