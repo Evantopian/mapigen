@@ -211,8 +211,10 @@ __marimo__/
 *.lz4
 *metadata.yml
 *openapi.yml
+*.zst
 *openapi.json
 *utilize.json
+
 
 # test data
 pytest_report.xml

@@ -1,23 +1,30 @@
 from __future__ import annotations
-import yaml
-import orjson as json
 import logging
 from pathlib import Path
 from typing import Any
-import lz4.frame # type: ignore
+
+import msgspec
+
+from mapigen.utils.compression_utils import decompress_zstd
 
 VALID_METHODS = {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
 
 def load_spec(path: Path) -> dict[str, Any]:
-    """Loads a YAML or JSON spec from the given path."""
+    """Loads a YAML or JSON spec from the given path, handling .zst compression."""
     try:
+        if path.name.endswith(".zst"):
+            compressed_content = path.read_bytes()
+            decompressed_content = decompress_zstd(compressed_content)
+            return msgspec.json.decode(decompressed_content)
+        
         content = path.read_text(encoding="utf-8")
         if path.suffix in (".yml", ".yaml"):
-            return yaml.safe_load(content)
+            return msgspec.yaml.decode(content)
         elif path.suffix == ".json":
-            return json.loads(content)
+            return msgspec.json.decode(content)
         else:
             raise ValueError(f"Unsupported file type: {path.suffix}")
+            
     except Exception as e:
         logging.error(f"Failed to load spec file {path}: {e}")
         raise
