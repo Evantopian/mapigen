@@ -130,17 +130,7 @@ def get_params_from_operation(op_details: dict[str, Any], path_params: list[dict
             
     return params
 
-def compress_metadata(json_path: Path) -> Path:
-    """
-    Read JSON file, compress it into LZ4 frame, and write to disk.
-    """
-    raw_bytes: bytes = json_path.read_bytes()
 
-    compressed: bytes = lz4.frame.compress(raw_bytes) # type: ignore
-
-    out_path = json_path.with_suffix(json_path.suffix + ".lz4")
-    out_path.write_bytes(compressed) # type: ignore
-    return out_path
 
 
 
