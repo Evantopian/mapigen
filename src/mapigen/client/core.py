@@ -1,9 +1,9 @@
 from __future__ import annotations
 import logging
+import os
 import time
 import sys
-from functools import lru_cache
-from typing import Any, Optional, Dict, Union
+from typing import Any, Optional, Dict, Union, List
 
 import structlog
 from niquests.auth import AuthBase
@@ -16,7 +16,7 @@ from ..http.transport import HttpTransport
 import msgspec
 from ..models import ServiceData, Parameter, ParameterRef
 from ..proxy import ServiceProxy
-from ..cache.storage import load_service_from_disk
+from ..cache.storage import PinnedLRUCache, load_service_from_disk
 from ..validation.schemas import build_and_validate_parameters
 
 from .config import RequestOptions, RequestConfig, ResponseMetadata
@@ -46,6 +46,8 @@ class Mapi:
         default_timeout: float = 30.0,
         log_level: str = "INFO",
         validate_on_execute: bool = True,
+        pinned_services: Optional[List[str]] = None,
+        cache_maxsize: Optional[int] = None,
         **transport_kwargs: Any,
     ) -> None:
         self.base_url = base_url
@@ -55,9 +57,25 @@ class Mapi:
         self.discovery = DiscoveryClient()
         self._services = self.discovery.list_services()
         self.validate_on_execute = validate_on_execute
+
+        # Configure logging
         logging.basicConfig(
             level=getattr(logging, log_level.upper(), logging.INFO),
             stream=sys.stdout,
+        )
+
+        # Configure cache
+        if cache_maxsize is None:
+            cache_maxsize = int(os.environ.get("MAPIGEN_CACHE_MAXSIZE", 64))
+        
+        if pinned_services is None:
+            pinned_env = os.environ.get("MAPIGEN_PINNED_SERVICES", "")
+            pinned_services = [s.strip() for s in pinned_env.split(",") if s.strip()]
+
+        self._service_cache = PinnedLRUCache(
+            load_func=self._load_service_data,
+            pinned_keys=set(pinned_services),
+            maxsize=cache_maxsize
         )
 
     def __getattribute__(self, name: str) -> Any:
@@ -68,7 +86,6 @@ class Mapi:
             pass
         return object.__getattribute__(self, name)
 
-    @lru_cache(maxsize=128)
     def _load_service_data(self, service_name: str) -> ServiceData:
         try:
             # The data is now decoded into a ServiceData object with version validation
@@ -80,6 +97,10 @@ class Mapi:
                 f"Service data for '{service_name}' is invalid. "
                 f"Please regenerate the service data. Error: {e}", service=service_name, error_type="sdk", original_exception=e
             ) from e
+
+    def clear_cache(self) -> None:
+        """Clears the in-memory service definition cache."""
+        self._service_cache.clear()
 
     def _classify_error(self, exception: Exception, response: Optional[Response] = None) -> tuple[str, str]:
         if isinstance(exception, RequestException):
@@ -118,7 +139,7 @@ class Mapi:
                 log.error("validation_failed", service=service, operation=operation, error=str(e))
                 raise e
 
-        service_data = self._load_service_data(service)
+        service_data = self._service_cache.get(service)
         op_details = service_data.operations.get(operation)
         if not op_details:
             raise MapiError(f"Operation '{operation}' not found", service=service, operation=operation, error_type="sdk")
