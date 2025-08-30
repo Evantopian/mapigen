@@ -138,18 +138,7 @@ def main():
             service_name = result["service_name"]
             write_metadata(service_name, result, overrides)
             
-            # Save struct definitions
-            structs_path = DATA_DIR / service_name / f"{service_name}_schemas.py"
-            structs_path.write_text(result["struct_definitions"])
-
             handle_utilize_compression(result["utilize_path"], args)
-            
-            # Compress struct definitions
-            if not args.no_compress_utilize:
-                compressed_data = compress_with_zstd(structs_path.read_bytes())
-                compressed_path = structs_path.with_suffix(".py.zst")
-                compressed_path.write_bytes(compressed_data)
-                structs_path.unlink()
             
             auth_info = result.get("auth_info", {})
             if auth_info and not auth_info.get("auth_types"):
