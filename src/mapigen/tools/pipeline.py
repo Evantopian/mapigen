@@ -49,9 +49,8 @@ def process_single_service(service_name: str, url: str) -> dict[str, Any]:
             "status": "success",
             "auth_info": extract_auth_info(raw_spec),
             "processed_op_count": len(processed_data["operations"]),
-            "utilize_path": utilize_path,
-            "struct_definitions": processed_data["struct_definitions"]
-        })
+            "utilize_path": utilize_path
+            })
         return metrics
     except Exception as e:
         logging.error(f"Failed to process service {service_name}: {e}")
