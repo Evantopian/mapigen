@@ -3,7 +3,8 @@ import pytest
 from dotenv import load_dotenv
 
 from mapigen import Mapi, Auth, MapiError
-from ..reporting import report, REQUIRED_CREDS, run_test_operation
+from ..helpers import report
+from ..reporting import run_test_operation, REQUIRED_CREDS
 
 # Load environment variables from .env file
 load_dotenv()
@@ -27,13 +28,14 @@ def client() -> Mapi:
 def test_discord_integration(client: Mapi):
     """Runs a series of integration tests for the Discord service."""
     if not all([TOKEN, CHANNEL_ID]):
-        report.add_skipped(SERVICE_NAME)
+        report.add_skipped(SERVICE_NAME, REQUIRED_CREDS[SERVICE_NAME])
         pytest.skip(f"Skipping {SERVICE_NAME} tests; missing required credentials.")
-        return
 
     operations_checked = []
+    op_name = ""
     try:
         # --- Test 1: Create Message ---
+        op_name = "create_message"
         content = "Mapi Client test..."
         created_message_id = None # Declare variable to store the created message ID
 
@@ -45,29 +47,31 @@ def test_discord_integration(client: Mapi):
         run_test_operation(
             client=client,
             service_name=SERVICE_NAME,
-            op_name="create_message",
+            op_name=op_name,
+            report=report,
             operations_checked=operations_checked,
             assertion_callback=assert_create_message,
-            success_message_template="SUCCESS: Message sent with ID: {id}",
             channel_id=CHANNEL_ID,
             content=content,
         )
 
         # --- Test 2: Get Channel ---
+        op_name = "get_channel"
         def assert_get_channel(data):
             assert data.get("id") == CHANNEL_ID
 
         run_test_operation(
             client=client,
             service_name=SERVICE_NAME,
-            op_name="get_channel",
+            op_name=op_name,
+            report=report,
             operations_checked=operations_checked,
             assertion_callback=assert_get_channel,
-            success_message_template="SUCCESS: Retrieved channel '{name}'",
             channel_id=CHANNEL_ID,
         )
 
         # --- Test 3: List Messages ---
+        op_name = "list_messages"
         def assert_list_messages(data):
             assert isinstance(data, list)
             assert len(data) <= 5
@@ -75,37 +79,31 @@ def test_discord_integration(client: Mapi):
         run_test_operation(
             client=client,
             service_name=SERVICE_NAME,
-            op_name="list_messages",
+            op_name=op_name,
+            report=report,
             operations_checked=operations_checked,
             assertion_callback=assert_list_messages,
-            success_message_template="SUCCESS: Retrieved recent messages.",
             channel_id=CHANNEL_ID,
             limit=5,
         )
         
+        # --- Test 4: Get Message ---
+        op_name = "get_message"
         def assert_get_messages(data):
-            # Removed content assertion as MESSAGE_ID is hardcoded and content may vary.
-            # If you want to assert on content, update this line with the expected content
-            # for the message referred to by MESSAGE_ID.
-            assert data.get("id") == MESSAGE_ID # Assert that the retrieved message ID matches the requested ID   
+            assert data.get("id") == MESSAGE_ID
         
         run_test_operation(
             client=client,
             service_name=SERVICE_NAME,
-            op_name="get_message",
+            op_name=op_name,
+            report=report,
             operations_checked=operations_checked,
             assertion_callback=assert_get_messages,
-            success_message_template="SUCCESS: Retrieved message '{content}' with ID: {id}", # Updated message
             channel_id=CHANNEL_ID,
-            message_id=MESSAGE_ID, # Use the hardcoded MESSAGE_ID
-        )
-
-        # If all tests passed, report success
-        report.add_passed(
-            SERVICE_NAME, operations_checked, REQUIRED_CREDS[SERVICE_NAME]
+            message_id=MESSAGE_ID,
         )
 
     except MapiError as e:
         print(f"--- CAUGHT EXPECTED ERROR for {SERVICE_NAME} ---")
         print(e)
-        report.add_failed(SERVICE_NAME, operations_checked, e)
+        report.add_failed(SERVICE_NAME, op_name, e)

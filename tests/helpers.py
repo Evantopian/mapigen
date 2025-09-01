@@ -3,6 +3,10 @@ import time
 from functools import wraps
 from typing import Any, Callable
 from pathlib import Path
+import yaml
+from collections import defaultdict
+
+from mapigen import MapiError
 
 
 def timing_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -28,3 +32,80 @@ def create_unsupported_file(tmp_path: Path, extension: str) -> Path:
 def create_mock_spec_with_broken_ref() -> dict[str, Any]:
     """Creates a mock spec with a broken $ref."""
     return {"components": {"parameters": {"param1": {"name": "param1"}}}}
+
+class TestReport:
+    """A singleton class to collect and save integration test results."""
+
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(TestReport, cls).__new__(cls)
+            cls._instance.results = defaultdict(lambda: defaultdict(list))
+            cls._instance.output_path = (
+                Path(__file__).resolve().parent.parent / "docs" / "integration_targets.yaml"
+            )
+        return cls._instance
+
+    def add_passed(self, service: str, op_name: str, duration_ms: int, payload_path: str):
+        self.results[service]["passed"].append(
+            {
+                "operation": op_name,
+                "duration_ms": duration_ms,
+                "payload_path": payload_path,
+            }
+        )
+
+    def add_failed(self, service: str, op_name: str, error: MapiError):
+        self.results[service]["failed"].append(
+            {
+                "operation": op_name,
+                "error": f"{error.http_status} {error.error_type}",
+                "message": str(error),
+            }
+        )
+
+    def add_skipped(self, service: str, creds_needed: list[str]):
+        self.results[service]["skipped"] = {
+            "reason": "missing credentials",
+            "creds_needed": creds_needed,
+        }
+
+    def save(self):
+        """Writes the collected results to the YAML file and prints a summary."""
+        if not self.results:
+            return
+
+        header = {
+            "title": "Integration Test Targets Status",
+            "description": (
+                "This file is an auto-generated report on the status of integration tests. "
+                "Tests may be skipped due to missing credentials in your .env file."
+            ),
+        }
+        final_yaml = {"info": header, "tests": dict(self.results)}
+
+        with open(self.output_path, "w") as f:
+            yaml.dump(final_yaml, f, sort_keys=False, default_flow_style=False, indent=2)
+
+        print("\n--- Integration Test Summary ---")
+        for service, results in self.results.items():
+            print(f"\nService: {service}")
+            if "passed" in results:
+                print(f"  Passed: {len(results['passed'])} operations")
+                for op in results["passed"]:
+                    print(f"    - {op['operation']} ({op['duration_ms']:.2f}ms)")
+                    if op['payload_path']:
+                        print(f"      Payload stored at: {op['payload_path']}")
+            if "failed" in results:
+                print(f"  Failed: {len(results['failed'])} operations")
+                for op in results["failed"]:
+                    print(f"    - {op['operation']}: {op['error']} - {op['message']}")
+            if "skipped" in results:
+                print(f"  Skipped: {results['skipped']['reason']}")
+        print("---------------------------------")
+        print(f"\nSuccessfully generated integration report at {self.output_path}")
+
+
+# Singleton instance for use in tests
+report = TestReport()

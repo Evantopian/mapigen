@@ -81,5 +81,4 @@ def service_data_fixture() -> ServiceData:
             }
         },
     }
-    # Use msgspec to decode the dict into the full object, ensuring correctness
     return msgspec.json.decode(msgspec.json.encode(data_dict), type=ServiceData)
