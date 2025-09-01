@@ -2,17 +2,11 @@
 import pytest
 import msgspec
 from unittest.mock import MagicMock
-from typing import Optional, Literal
 
 from mapigen.validation.schemas import build_and_validate_parameters
 from mapigen.models import ServiceData
 from mapigen.client.exceptions import MapiError
 
-
-class MockOpParams(msgspec.Struct, forbid_unknown_fields=True):
-    user_id: int
-    limit: Optional[int] = None
-    status: Optional[Literal["active", "inactive"]] = None
 
 @pytest.fixture
 def mock_service_data() -> ServiceData:
@@ -49,62 +43,73 @@ def mock_service_data() -> ServiceData:
                         "required": False,
                         "schema": {"type": "string", "enum": ["active", "inactive"]},
                     },
-                ]
+                    {
+                        "type": "inline",
+                        "name": "tags",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "array", "items": {"type": "string"}},
+                    },
+                ],
             }
-        }
+        },
     }
     return msgspec.json.decode(msgspec.json.encode(data_dict), type=ServiceData)
 
 
-@pytest.fixture
-def mock_schema_module(monkeypatch):
-    """Mocks the schema module import."""
-    mock_module = MagicMock()
-    
-    monkeypatch.setattr(
-        "mapigen.validation.schemas._import_schema_module",
-        lambda service_name: mock_module
-    )
-    
-    monkeypatch.setattr(
-        mock_module,
-        "test_op_params",
-        MockOpParams
-    )
-    
-    return mock_module
+@pytest.fixture(autouse=True)
+def mock_load_service(monkeypatch, mock_service_data: ServiceData):
+    """Mocks load_service_from_disk to return the mock_service_data fixture."""
+    mock_load = MagicMock(return_value=mock_service_data)
+    monkeypatch.setattr("mapigen.validation.schemas.load_service_from_disk", mock_load)
+    return mock_load
 
 
-def test_validation_success(mock_service_data: ServiceData, mock_schema_module):
+def test_validation_success(mock_service_data: ServiceData):
     """Tests that valid parameters pass validation."""
     params = {"user_id": 123, "limit": 50, "status": "active"}
     build_and_validate_parameters(mock_service_data.service_name, "test_op", params)
-    # No exception means success
 
 
-def test_validation_missing_required(mock_service_data: ServiceData, mock_schema_module):
+def test_validation_missing_required(mock_service_data: ServiceData):
     """Tests that a missing required parameter raises a MapiError."""
     params = {"limit": 50}
-    with pytest.raises(MapiError):
+    with pytest.raises(MapiError, match="Missing required parameter: 'user_id'"):
         build_and_validate_parameters(mock_service_data.service_name, "test_op", params)
 
 
-def test_validation_wrong_type(mock_service_data: ServiceData, mock_schema_module):
+def test_validation_wrong_type(mock_service_data: ServiceData):
     """Tests that a parameter with the wrong type raises a MapiError."""
     params = {"user_id": "not-an-integer"}
-    with pytest.raises(MapiError):
+    with pytest.raises(MapiError, match="Invalid type for parameter 'user_id'"):
         build_and_validate_parameters(mock_service_data.service_name, "test_op", params)
 
 
-def test_validation_unexpected_param(mock_service_data: ServiceData, mock_schema_module):
-    """Tests that an unexpected parameter raises a MapiError."""
+def test_validation_unexpected_param(mock_service_data: ServiceData):
+    """Tests that an unexpected parameter does not raise an error."""
     params = {"user_id": 123, "unexpected": "foo"}
-    with pytest.raises(MapiError):
+    try:
         build_and_validate_parameters(mock_service_data.service_name, "test_op", params)
+    except MapiError as e:
+        pytest.fail(f"Unexpected MapiError was raised for unexpected parameter: {e}")
 
 
-def test_validation_enum_mismatch(mock_service_data: ServiceData, mock_schema_module):
+def test_validation_enum_mismatch(mock_service_data: ServiceData):
     """Tests that a parameter outside the enum raises a MapiError."""
     params = {"user_id": 123, "status": "invalid-status"}
-    with pytest.raises(MapiError):
+    with pytest.raises(MapiError, match="not in the allowed enum values"):
         build_and_validate_parameters(mock_service_data.service_name, "test_op", params)
+
+
+def test_validation_array_type(mock_service_data: ServiceData):
+    """Tests that array types are validated correctly."""
+    # Valid case
+    params_valid = {"user_id": 123, "tags": ["a", "b", "c"]}
+    build_and_validate_parameters(mock_service_data.service_name, "test_op", params_valid)
+
+    # Invalid item in array
+    params_invalid = {"user_id": 123, "tags": ["a", "b", 123]}
+    with pytest.raises(MapiError, match=r"Invalid type for parameter 'tags\[\]'"):
+        build_and_validate_parameters(
+            mock_service_data.service_name, "test_op", params_invalid
+        )
