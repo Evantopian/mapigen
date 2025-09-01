@@ -33,6 +33,15 @@ def _validate_type(value: Any, schema: Dict[str, Any], param_name: str, service_
             error_type="validation",
         )
     
+    if "enum" in schema and value not in schema["enum"]:
+        raise MapiError(
+            f"Invalid value for parameter '{param_name}'. "
+            f"Value '{value}' is not in the allowed enum values: {schema['enum']}",
+            service=service_name,
+            operation=operation_id,
+            error_type="validation",
+        )
+
     if schema_type == "array":
         items_schema = schema.get("items")
         if items_schema and isinstance(value, list):
@@ -73,8 +82,6 @@ def build_and_validate_parameters(
         # Validate provided parameters
         for param_name, value in parameters.items():
             if param_name not in op_params:
-                # Allowing extra parameters, as the previous implementation likely did.
-                # The struct would just ignore extra fields.
                 continue
             
             param_details = op_params[param_name]
