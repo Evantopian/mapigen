@@ -31,6 +31,9 @@ test-populate: ## Run integration tests after a fresh data population
 		echo "Running integration tests on populated data..." && \
 		pytest -s tests/integration/
 
+test-parallel: ## Run tests in parallel using pytest-xdist
+	pytest -n auto -sv
+
 
 populate: ## Populate data, skipping already processed specs. Pass args with ARGS="--arg1 val1"
 	$(TOOLS).populate_data $(ARGS)
