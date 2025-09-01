@@ -1,6 +1,6 @@
 """Manages API popularity ranking and tiers."""
 from __future__ import annotations
-import orjson as json
+import msgspec
 from functools import lru_cache
 from pathlib import Path
 
@@ -11,7 +11,7 @@ def load_popularity_ranks() -> dict[str, int]:
     """Loads the popularity rank for each service."""
     if not POPULARITY_PATH.exists():
         return {}
-    return json.loads(POPULARITY_PATH.read_text())
+    return msgspec.json.decode(POPULARITY_PATH.read_bytes())
 
 def get_rank(service: str) -> int:
     """Gets the popularity rank for a single service. Defaults to a low rank."""

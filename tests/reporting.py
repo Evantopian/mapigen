@@ -1,3 +1,4 @@
+from __future__ import annotations
 import yaml
 import orjson as json
 from pathlib import Path
@@ -6,6 +7,7 @@ from typing import Any, Callable, List
 from dataclasses import asdict
 
 from mapigen import Mapi, MapiError
+from .helpers import timing_decorator
 
 # This dictionary is the single source of truth for which credentials
 # are needed for each integration test.
@@ -45,6 +47,9 @@ def _save_payload_if_enabled(service_name: str, op_name: str, response_wrapper: 
         print(f"SUCCESS: Saved payload to {file_path}")
 
 
+
+
+@timing_decorator
 def run_test_operation(
     client: Mapi,
     service_name: str,
