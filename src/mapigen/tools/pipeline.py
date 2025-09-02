@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from mapigen.metadata.converter import normalize_spec
 from mapigen.metadata.extractor import extract_operations_and_components, save_metadata
-from mapigen.tools.utils import extract_auth_info
+from mapigen.tools.utils import extract_auth_info, count_openapi_operations
 from mapigen.utils.memory_manager import trigger_gc_if_needed
 
 # Define paths relative to this module
@@ -45,10 +45,20 @@ def process_single_service(service_name: str, url: str) -> dict[str, Any]:
         
         utilize_path = save_metadata(service_name, processed_data, service_data_dir)
 
+        # Get reusable param count from the extractor's result
+        reusable_param_count = processed_data.get("reusable_param_count", 0)
+
+        # Calculate coverage based on original vs processed op count
+        original_op_count = count_openapi_operations(raw_spec)
+        processed_op_count = len(processed_data.get("operations", {}))
+        coverage = f"{processed_op_count}/{original_op_count}" if original_op_count > 0 else "0/0"
+
         metrics.update({
             "status": "success",
             "auth_info": extract_auth_info(raw_spec),
-            "processed_op_count": len(processed_data["operations"]),
+            "processed_op_count": processed_op_count,
+            "reusable_param_count": reusable_param_count,
+            "coverage": coverage,
             "utilize_path": utilize_path
             })
         return metrics
