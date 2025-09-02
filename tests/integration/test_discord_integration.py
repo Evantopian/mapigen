@@ -2,7 +2,7 @@ import os
 import pytest
 from dotenv import load_dotenv
 
-from mapigen import Mapi, Auth, MapiError
+from mapigen import Mapi, Auth
 from ..helpers import report
 from ..reporting import run_test_operation, REQUIRED_CREDS
 
@@ -32,78 +32,72 @@ def test_discord_integration(client: Mapi):
         pytest.skip(f"Skipping {SERVICE_NAME} tests; missing required credentials.")
 
     operations_checked = []
-    op_name = ""
-    try:
-        # --- Test 1: Create Message ---
-        op_name = "create_message"
-        content = "Mapi Client test..."
-        created_message_id = None # Declare variable to store the created message ID
 
-        def assert_create_message(data):
-            nonlocal created_message_id # Use nonlocal to modify the outer variable
-            created_message_id = data.get("id")
-            assert data.get("content") == content
+    # --- Test 1: Create Message ---
+    op_name = "create_message"
+    content = "Mapi Client test..."
+    created_message_id = None # Declare variable to store the created message ID
 
-        run_test_operation(
-            client=client,
-            service_name=SERVICE_NAME,
-            op_name=op_name,
-            report=report,
-            operations_checked=operations_checked,
-            assertion_callback=assert_create_message,
-            channel_id=CHANNEL_ID,
-            content=content,
-        )
+    def assert_create_message(data):
+        nonlocal created_message_id # Use nonlocal to modify the outer variable
+        created_message_id = data.get("id")
+        assert data.get("content") == content
 
-        # --- Test 2: Get Channel ---
-        op_name = "get_channel"
-        def assert_get_channel(data):
-            assert data.get("id") == CHANNEL_ID
+    run_test_operation(
+        client=client,
+        service_name=SERVICE_NAME,
+        op_name=op_name,
+        report=report,
+        operations_checked=operations_checked,
+        assertion_callback=assert_create_message,
+        channel_id=CHANNEL_ID,
+        content=content,
+    )
 
-        run_test_operation(
-            client=client,
-            service_name=SERVICE_NAME,
-            op_name=op_name,
-            report=report,
-            operations_checked=operations_checked,
-            assertion_callback=assert_get_channel,
-            channel_id=CHANNEL_ID,
-        )
+    # --- Test 2: Get Channel ---
+    op_name = "get_channel"
+    def assert_get_channel(data):
+        assert data.get("id") == CHANNEL_ID
 
-        # --- Test 3: List Messages ---
-        op_name = "list_messages"
-        def assert_list_messages(data):
-            assert isinstance(data, list)
-            assert len(data) <= 5
+    run_test_operation(
+        client=client,
+        service_name=SERVICE_NAME,
+        op_name=op_name,
+        report=report,
+        operations_checked=operations_checked,
+        assertion_callback=assert_get_channel,
+        channel_id=CHANNEL_ID,
+    )
 
-        run_test_operation(
-            client=client,
-            service_name=SERVICE_NAME,
-            op_name=op_name,
-            report=report,
-            operations_checked=operations_checked,
-            assertion_callback=assert_list_messages,
-            channel_id=CHANNEL_ID,
-            limit=5,
-        )
-        
-        # --- Test 4: Get Message ---
-        op_name = "get_message"
-        def assert_get_messages(data):
-            assert data.get("id") == MESSAGE_ID
-        
-        run_test_operation(
-            client=client,
-            service_name=SERVICE_NAME,
-            op_name=op_name,
-            report=report,
-            operations_checked=operations_checked,
-            assertion_callback=assert_get_messages,
-            channel_id=CHANNEL_ID,
-            message_id=MESSAGE_ID,
-        )
+    # --- Test 3: List Messages ---
+    op_name = "list_messages"
+    def assert_list_messages(data):
+        assert isinstance(data, list)
+        assert len(data) <= 5
 
-    except MapiError as e:
-        print(f"--- CAUGHT EXPECTED ERROR for {SERVICE_NAME} ---")
-        print(e)
-        report.add_failed(SERVICE_NAME, op_name, e)
+    run_test_operation(
+        client=client,
+        service_name=SERVICE_NAME,
+        op_name=op_name,
+        report=report,
+        operations_checked=operations_checked,
+        assertion_callback=assert_list_messages,
+        channel_id=CHANNEL_ID,
+        limit=5,
+    )
+    
+    # --- Test 4: Get Message ---
+    op_name = "get_message"
+    def assert_get_messages(data):
+        assert data.get("id") == MESSAGE_ID
+    
+    run_test_operation(
+        client=client,
+        service_name=SERVICE_NAME,
+        op_name=op_name,
+        report=report,
+        operations_checked=operations_checked,
+        assertion_callback=assert_get_messages,
+        channel_id=CHANNEL_ID,
+        message_id=MESSAGE_ID,
+    )

@@ -4,8 +4,8 @@ from pathlib import Path
 from typing import Any, Callable, List
 from dataclasses import asdict
 
-from mapigen import Mapi
-from .helpers import TestReport
+from mapigen import Mapi, MapiError
+from .helpers import TestReport, VALID_CALL_4XX
 
 # This dictionary is the single source of truth for which credentials
 # are needed for each integration test.
@@ -54,16 +54,49 @@ def run_test_operation(
     assertion_callback: Callable[[Any], None],
     **kwargs,
 ):
-    """A helper function to run a single integration test operation."""
-    response_wrapper = client.execute(service_name, op_name, **kwargs)
-    data = response_wrapper.get("data")
-    assert data is not None, f"Data was null for {op_name}"
+    """
+    A helper function to run a single integration test operation and report the result.
+    It centralizes error handling and classification.
+    """
+    response_wrapper = None
+    try:
+        response_wrapper = client.execute(service_name, op_name, **kwargs)
+        metadata = response_wrapper.get("metadata")
+        data = response_wrapper.get("data")
 
-    assertion_callback(data)
+        # Case 1: Non-exception errors (e.g., validation error from the SDK)
+        if metadata and metadata.status == "error":
+            error = MapiError(
+                message=f"Operation failed with error type: {metadata.error_type}",
+                service=service_name,
+                operation=op_name,
+                error_type=metadata.error_type,
+            )
+            # http_status is not applicable for pre-flight validation errors
+            report.add_failed(service_name, op_name, error)
+            return response_wrapper
 
-    operations_checked.append(op_name)
+        # Case 2: Successful execution (2xx)
+        assert data is not None, f"Data was null for a successful operation: {op_name}"
+        assertion_callback(data)
+        operations_checked.append(op_name)
 
-    payload_path = _save_payload_if_enabled(service_name, op_name, response_wrapper)
-    if (metadata := response_wrapper.get("metadata")):
-        report.add_passed(service_name, op_name, metadata.duration_ms, payload_path or "")
-    return response_wrapper     
+        payload_path = _save_payload_if_enabled(service_name, op_name, response_wrapper)
+        if metadata:
+            report.add_passed(service_name, op_name, metadata.duration_ms, payload_path or "")
+
+    except MapiError as e:
+        # Case 3: Exception errors (e.g., HTTP 4xx/5xx from the server)
+        status = getattr(e, 'http_status', None)
+        if status and status in VALID_CALL_4XX:
+            report.add_expected_client_error(service_name, op_name, e)
+        else:
+            report.add_failed(service_name, op_name, e)
+        
+        # Create a mock response wrapper for consistent return type
+        if not response_wrapper:
+             # This is a private method, but essential for consistent reporting
+            metadata = client._create_metadata(service_name, op_name, 0, error=e)
+            response_wrapper = {"data": None, "metadata": metadata}
+
+    return response_wrapper

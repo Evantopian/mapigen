@@ -16,7 +16,7 @@
 
 ## Overview
 
-`mapigen` acts as a universal API client generator. It processes any OpenAPI specification, creating a highly optimized and compressed metadata file. The `Mapi` client then uses this metadata to provide a dynamic, ready-to-use Python interface for any API, complete with authentication and validation.
+`mapigen` acts as a universal API client generator. It processes any OpenAPI specification, creating a highly optimized metadata file that is compressed with zstd for a smaller footprint. This metadata is then decompressed at runtime in under 1ms, ensuring minimal latency. The `Mapi` client then uses this metadata to provide a dynamic, ready-to-use Python interface for any API, complete with authentication and validation.
 
 This approach is ideal for workflow orchestrators, node executors, and LLM tool integrations where performance and adaptability are critical.
 
@@ -144,7 +144,7 @@ I am continuously improving `mapigen`. Here are some features on the roadmap:
 -   **Local Web Server:** A local UI for faster configuration and testing.
 
 ## Contributing
-I've considered utilizing [Postman](https://www.postman.com/) as another registry method—even as the first priority. However, it seems that Postman does not offer API endpoints to retrieve data publicly. Continuously web scraping Postman to track metrics such as popularity, relevancy, and view counts is unsustainable and time-consuming, especially when updates occur. No webhooks appear to exist for this purpose. I've also attempted forking, which allows me to fetch the workspaces and collections, but it removes the ability to update autonomously. If anyone comes across a solution for this, I would love to know.
+I've considered utilizing [Postman](https://www.postman.com/) as another registry method—even as the first priority index for the registry. However, it seems that Postman does not offer API endpoints to retrieve data publicly. Continuously web scraping Postman to track metrics such as popularity, relevancy, and view counts is unsustainable, time-consuming, and resource intensive, especially when updates occur. I've also attempted forking, which allows me to snapshot the workspaces and collections, but in return, it removes the ability to update autonomously. If anyone comes across a solution for this, I would love to know.
  
 1.  **Linting**:
     ```bash
@@ -154,6 +154,21 @@ I've considered utilizing [Postman](https://www.postman.com/) as another registr
     ```bash
     make test
     ```
+
+### Generating Tests
+
+To ensure test coverage for all services, a script is provided to generate boilerplate integration tests for any service that doesn't already have one.
+
+```bash
+# Generate tests for all missing services
+make generate-tests
+
+# Generate a test for a specific service (e.g., 'stripe')
+make generate-tests ARGS="--service stripe"
+
+# Force overwrite of an existing test file
+make generate-tests ARGS="--service stripe --force"
+```
 
 ## License
 

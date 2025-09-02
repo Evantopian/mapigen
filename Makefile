@@ -1,4 +1,4 @@
-.PHONY: help lint test test-populate populate populate-force populate-debug validate clean clean-openapi show-format show-data
+.PHONY: help lint test test-populate populate populate-force populate-debug validate clean clean-openapi show-format show-data generate-tests
 
 
 # Variables
@@ -33,6 +33,9 @@ test-populate: ## Run integration tests after a fresh data population
 
 test-parallel: ## Run tests in parallel using pytest-xdist
 	pytest -n auto -sv
+
+generate-tests: ## Generate boilerplate for missing integration tests. Pass args with ARGS="--arg1 val1"
+	$(PYTHON) utils/generate_integration_tests.py $(ARGS)
 
 
 populate: ## Populate data, skipping already processed specs. Pass args with ARGS="--arg1 val1"

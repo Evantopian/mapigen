@@ -2,7 +2,7 @@ import os
 import pytest
 from dotenv import load_dotenv
 
-from mapigen import Mapi, Auth, MapiError
+from mapigen import Mapi, Auth
 from ..helpers import report
 from ..reporting import run_test_operation, REQUIRED_CREDS
 
@@ -29,24 +29,18 @@ def test_github_integration(client: Mapi):
         pytest.skip(f"Skipping {SERVICE_NAME} tests; missing required credentials.")
 
     operations_checked = []
-    op_name = ""
-    try:
-        # --- Test 1: Get User ---
-        op_name = "users/get-by-username"
-        def assert_get_user(data):
-            assert data.get("login") == TEST_USER
 
-        run_test_operation(
-            client=client,
-            service_name=SERVICE_NAME,
-            op_name=op_name,
-            report=report,
-            operations_checked=operations_checked,
-            assertion_callback=assert_get_user,
-            username=TEST_USER,
-        )
+    # --- Test 1: Get User ---
+    op_name = "users/get-by-username"
+    def assert_get_user(data):
+        assert data.get("login") == TEST_USER
 
-    except MapiError as e:
-        print(f"--- CAUGHT EXPECTED ERROR for {SERVICE_NAME} ---")
-        print(e)
-        report.add_failed(SERVICE_NAME, op_name, e)
+    run_test_operation(
+        client=client,
+        service_name=SERVICE_NAME,
+        op_name=op_name,
+        report=report,
+        operations_checked=operations_checked,
+        assertion_callback=assert_get_user,
+        username=TEST_USER,
+    )
