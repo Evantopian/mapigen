@@ -17,7 +17,7 @@ SRC_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = SRC_DIR / "data"
 
 def fetch_single_spec(
-    service_name: str, url: str, session: niquests.Session
+    service_name: str, url: str, session: niquests.Session, args: Any
 ) -> Dict[str, Any]:
     """Fetches, normalizes, and compresses a single OpenAPI spec, returning metrics."""
     headers = {"User-Agent": "mapigen-builder/1.0"}
@@ -35,12 +35,16 @@ def fetch_single_spec(
             data = msgspec.yaml.decode(content)
             content = msgspec.json.encode(data)
 
-        compressed_content = compress_with_zstd(content)
-        
         service_data_dir = DATA_DIR / service_name
         service_data_dir.mkdir(parents=True, exist_ok=True)
-        spec_path = service_data_dir / f"{service_name}.openapi.json.zst"
-        spec_path.write_bytes(compressed_content)
+
+        if args.no_compress_original:
+            spec_path = service_data_dir / f"{service_name}.openapi.json"
+            spec_path.write_bytes(content)
+        else:
+            compressed_content = compress_with_zstd(content)
+            spec_path = service_data_dir / f"{service_name}.openapi.json.zst"
+            spec_path.write_bytes(compressed_content)
 
         return {"status": "success", "service_name": service_name, "download_duration": download_duration}
 
@@ -55,7 +59,7 @@ def batcher(iterable: Iterable, batch_size: int) -> Iterator[List[Any]]:
         yield chunk
 
 def fetch_specs_concurrently(
-    sources: Dict[str, str], batch_size: int, max_workers: int
+    sources: Dict[str, str], batch_size: int, args: Any
 ) -> List[Dict[str, Any]]:
     """
     Fetches and compresses multiple specs concurrently in batches, saving them to disk.
@@ -67,9 +71,9 @@ def fetch_specs_concurrently(
 
     for batch in tqdm(list(batcher(source_items, batch_size)), desc="Downloading Batches"):
         with niquests.Session() as session:
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            with ThreadPoolExecutor(max_workers=args.download_workers) as executor:
                 futures = {
-                    executor.submit(fetch_single_spec, name, url, session): name
+                    executor.submit(fetch_single_spec, name, url, session, args): name
                     for name, url in batch
                 }
                 for future in as_completed(futures):

@@ -35,13 +35,12 @@ SERVICES_JSON_PATH = SRC_DIR / "services.json"
 
 def setup_arg_parser() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Fetch and process API specifications.")
-    parser.add_argument("--batch-size", type=int, default=None, help="Number of specs to process in a batch. Disables dynamic batching.")
     parser.add_argument("--download-workers", type=int, default=25, help="Concurrent download workers.")
     parser.add_argument("--process-workers", type=int, default=mp.cpu_count(), help="Parallel processing workers.")
-    parser.add_argument("--skip-download", action="store_true", help="Skip download, use existing specs.")
-    parser.add_argument("--force-reprocess", action="store_true", help="Force reprocessing of all specs.")
-    parser.add_argument("--cache", action="store_true", help="Use cached downloads but force reprocessing.")
+    parser.add_argument("--force-download", action="store_true", help="Force re-download of all specs, overwriting cached versions.")
+    parser.add_argument("--force-reprocess", action="store_true", help="Force reprocessing of all downloaded specs.")
     parser.add_argument("--no-compress-utilize", action="store_true", help="Do not compress final utilize.json files.")
+    parser.add_argument("--no-compress-original", action="store_true", help="Do not compress original downloaded specs.")
     parser.add_argument("--memory-threshold", type=float, default=2048.0, help="Memory threshold in MB to trigger garbage collection.")
     return parser.parse_args()
 
@@ -98,35 +97,56 @@ def main():
         logging.warning("No sources found. Exiting.")
         return
 
-    if args.cache:
-        args.skip_download = True
-        args.force_reprocess = True
-
     # --- Download Phase ---
-    download_results: List[Dict[str, Any]] = []
-    if not args.skip_download:
-        download_batch_size = 50
-        download_results = fetch_specs_concurrently(all_sources, download_batch_size, args.download_workers)
+    sources_to_download = all_sources.copy()
+    if not args.force_download:
+        existing_specs = {
+            name: url for name, url in all_sources.items()
+            if (DATA_DIR / name / f"{name}.openapi.json.zst").exists()
+        }
+        if existing_specs:
+            logging.info("Found %d existing downloaded specs. Skipping them.", len(existing_specs))
+            for name in existing_specs:
+                sources_to_download.pop(name, None)
     
-    # --- Processing Phase ---
-    services_to_process_tuples = list(all_sources.items())
-    if not args.force_reprocess:
-        services_to_process_tuples = [(name, url) for name, url in services_to_process_tuples if not (DATA_DIR / name / f"{name}.utilize.json.zst").exists() and not (DATA_DIR / name / f"{name}.utilize.json").exists()]
+    download_results: List[Dict[str, Any]] = []
+    if sources_to_download:
+        logging.info("Downloading %d new or forced specs...", len(sources_to_download))
+        download_results = fetch_specs_concurrently(sources_to_download, 50, args)
+    else:
+        logging.info("All specs are already downloaded.")
 
-    if not services_to_process_tuples:
-        logging.info("All services are already processed. Exiting.")
-        return
+    # --- Processing Phase ---
+    available_specs = {
+        name: url for name, url in all_sources.items()
+        if (DATA_DIR / name / f"{name}.openapi.json.zst").exists()
+    }
+
+    services_to_process_map = available_specs.copy()
+    if not args.force_reprocess:
+        previously_processed = {
+            name for name in available_specs
+            if (DATA_DIR / name / f"{name}.utilize.json.zst").exists() or \
+               (DATA_DIR / name / f"{name}.utilize.json").exists()
+        }
+        if previously_processed:
+            logging.info("Skipping %d already processed services.", len(previously_processed))
+            for name in previously_processed:
+                services_to_process_map.pop(name, None)
 
     services_to_process: List[Dict[str, Any]] = []
-    for name, url in services_to_process_tuples:
+    for name, url in services_to_process_map.items():
         try:
             size = (DATA_DIR / name / f"{name}.openapi.json.zst").stat().st_size
             services_to_process.append({"name": name, "url": url, "size": size})
         except FileNotFoundError:
-            logging.warning(f"Could not find compressed spec for {name}. It will be skipped during processing.")
-            services_to_process.append({"name": name, "url": url, "size": 0})
+            logging.warning(f"Spec for '{name}' not found, skipping processing. Please check download logs.")
 
-    processing_results = run_processing_pipeline(services_to_process, args)
+    processing_results: List[Dict[str, Any]] = []
+    if not services_to_process:
+        logging.info("No services require processing.")
+    else:
+        processing_results = run_processing_pipeline(services_to_process, args)
 
     # --- Aggregation & Reporting Phase ---
     logging.info("Aggregating results...")

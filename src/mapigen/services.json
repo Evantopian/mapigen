@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2025-09-02T05:51:48.348914+00:00",
+  "generated_at": "2025-09-02T06:40:19.137286+00:00",
   "services": {
     "github": {
       "operation_count": 1064,
@@ -27,6 +27,20 @@
         "oauth2"
       ],
       "primary_auth": "api_key"
+    },
+    "asana-sdk": {
+      "operation_count": 199,
+      "popularity_rank": 999,
+      "auth_types": [
+        "bearer_token"
+      ],
+      "primary_auth": "bearer_token"
+    },
+    "aws-sellers": {
+      "operation_count": 2,
+      "popularity_rank": 999,
+      "auth_types": [],
+      "primary_auth": "none"
     },
     "pokeapi": {
       "operation_count": 97,

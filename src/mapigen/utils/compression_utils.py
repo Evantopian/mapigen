@@ -1,7 +1,7 @@
 from __future__ import annotations
 import zstandard as zstd
 
-def compress_with_zstd(data: bytes, level: int = 4) -> bytes:
+def compress_with_zstd(data: bytes, level: int = 22) -> bytes:
     """Compresses data using zstandard."""
     cctx = zstd.ZstdCompressor(level=level)
     return cctx.compress(data)

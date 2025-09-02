@@ -9,4 +9,5 @@ The following services are using authentication details from `overrides.json`:
 
 ## Services Requiring Attention
 
-No services appear to require an authentication override at this time.
+The following services have no declared authentication types after processing and may require an override to be added to `overrides.json`:
+- `aws-sellers`

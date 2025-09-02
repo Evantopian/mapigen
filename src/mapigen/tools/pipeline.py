@@ -2,9 +2,8 @@ from __future__ import annotations
 import logging
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from itertools import islice
 from pathlib import Path
-from typing import Any, Dict, Iterable, Iterator, List
+from typing import Any, Dict, List
 
 from tqdm import tqdm
 
@@ -18,11 +17,9 @@ SRC_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = SRC_DIR / "data"
 FORMAT_VERSION = 3
 
-def batcher(iterable: Iterable, batch_size: int) -> Iterator[list]:
-    """Yields successive n-sized chunks from an iterable."""
-    iterator = iter(iterable)
-    while chunk := list(islice(iterator, batch_size)):
-        yield chunk
+
+
+
 
 def process_single_service(service_name: str, url: str) -> dict[str, Any]:
     """Worker function to process a single service, returning metrics."""
@@ -73,11 +70,6 @@ def create_balanced_batches(service_info: List[Dict[str, Any]], num_batches: int
     if not service_info:
         return []
 
-    # For small numbers of items, don't bother with complex batching.
-    if len(service_info) < num_batches * 2:
-        logging.info("Number of items is small, creating a single batch.")
-        return [service_info]
-
     service_info.sort(key=lambda x: x["size"], reverse=True)
 
     num_batches = min(num_batches, len(service_info))
@@ -96,11 +88,8 @@ def create_balanced_batches(service_info: List[Dict[str, Any]], num_batches: int
 
 def run_processing_pipeline(services_to_process: List[Dict[str, Any]], args: Any) -> List[Dict[str, Any]]:
     """Runs the parallel processing pipeline and returns the results."""
-    if args.batch_size:
-        processing_batches = list(batcher(services_to_process, args.batch_size))
-    else:
-        logging.info("Creating balanced batches based on file size...")
-        processing_batches = create_balanced_batches(services_to_process, args.process_workers)
+    logging.info("Creating balanced batches based on file size...")
+    processing_batches = create_balanced_batches(services_to_process, args.process_workers)
 
     if not services_to_process:
         return []
