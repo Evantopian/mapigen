@@ -1,5 +1,7 @@
 {
   "stripe": "https://raw.githubusercontent.com/stripe/openapi/refs/heads/master/openapi/spec3.json",
   "github": "https://raw.githubusercontent.com/github/rest-api-description/refs/heads/main/descriptions/api.github.com/api.github.com.json",
-  "discord": "https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json"
+  "discord": "https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json",
+  "pokeapi": "https://raw.githubusercontent.com/PokeAPI/pokeapi/refs/heads/master/openapi.yml"
+
 }

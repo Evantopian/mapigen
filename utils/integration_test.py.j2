@@ -10,7 +10,7 @@ import pytest
 from dotenv import load_dotenv
 
 from mapigen import Mapi
-from ..helpers import report
+from ..helpers import result_reporter as report
 from ..reporting import run_test_operation
 
 # Load environment variables from .env file

@@ -5,7 +5,7 @@ from typing import Any, Callable, List
 from dataclasses import asdict
 
 from mapigen import Mapi, MapiError
-from .helpers import TestReport, VALID_CALL_4XX
+from .helpers import ResultReporter, VALID_CALL_4XX
 
 # This dictionary is the single source of truth for which credentials
 # are needed for each integration test.
@@ -49,7 +49,7 @@ def run_test_operation(
     client: Mapi,
     service_name: str,
     op_name: str,
-    report: "TestReport",
+    report: "ResultReporter",
     operations_checked: List[str],
     assertion_callback: Callable[[Any], None],
     **kwargs,
@@ -70,7 +70,7 @@ def run_test_operation(
                 message=f"Operation failed with error type: {metadata.error_type}",
                 service=service_name,
                 operation=op_name,
-                error_type=metadata.error_type,
+                error_type=metadata.error_type or "unknown",
             )
             # http_status is not applicable for pre-flight validation errors
             report.add_failed(service_name, op_name, error)

@@ -3,7 +3,7 @@ import pytest
 from dotenv import load_dotenv
 
 from mapigen import Mapi, Auth
-from ..helpers import report
+from ..helpers import result_reporter as report
 from ..reporting import run_test_operation, REQUIRED_CREDS
 
 # Load environment variables from .env file

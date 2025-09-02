@@ -2,21 +2,21 @@
 import pytest
 from unittest.mock import patch
 
-from ..helpers import TestReport
+from ..helpers import ResultReporter
 from mapigen.client.exceptions import MapiError
 
-# As TestReport is a singleton, we use a fixture to reset its state for each test,
+# As ResultReporter is a singleton, we use a fixture to reset its state for each test,
 # ensuring test isolation.
 @pytest.fixture
-def report_instance() -> TestReport:
-    """Returns a clean TestReport instance for each test."""
+def report_instance() -> ResultReporter:
+    """Returns a clean ResultReporter instance for each test."""
     # Create a new instance for testing purposes to avoid polluting the global one
-    report = TestReport()
+    report = ResultReporter()
     report.results.clear()
     return report
 
 
-def test_add_expected_client_error(report_instance: TestReport):
+def test_add_expected_client_error(report_instance: ResultReporter):
     """
     Tests that add_expected_client_error correctly adds a result
     to the 'expected_client_errors' category. This test will fail until
@@ -48,7 +48,7 @@ def test_add_expected_client_error(report_instance: TestReport):
 
 @patch("builtins.open")
 @patch("yaml.dump")
-def test_save_report_includes_expected_client_errors(mock_yaml_dump, mock_open, report_instance: TestReport):
+def test_save_report_includes_expected_client_errors(mock_yaml_dump, mock_open, report_instance: ResultReporter):
     """
     Tests that the save method correctly includes the 'expected_client_errors'
     category in the final YAML output.
