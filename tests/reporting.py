@@ -5,7 +5,7 @@ from typing import Any, Callable, List
 from dataclasses import asdict
 
 from mapigen import Mapi
-from .helpers import timing_decorator, TestReport
+from .helpers import TestReport
 
 # This dictionary is the single source of truth for which credentials
 # are needed for each integration test.
