@@ -1,0 +1,5 @@
+postman:
+  - provider: postman_inc
+    workspaces:
+      - name: public_apis
+        id: "your-workspace-id-here"

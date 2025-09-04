@@ -1,46 +1,39 @@
 """Discovery client for services and operations."""
 from __future__ import annotations
-from typing import List, Optional
+from typing import List
 
-from mapigen.models import ServiceInfo, Operation
-
+from mapigen.models import ServiceMetadata
 from . import services
-from . import operations
 
 
 class DiscoveryClient:
     """Provides methods for discovering available services and their details."""
 
-    # Service-level methods
+    # --- API & Source Level Methods ---
     @staticmethod
-    def list_services() -> list[str]:
-        return services.list_services()
+    def list_apis() -> List[str]:
+        return services.list_apis()
 
     @staticmethod
-    def service_exists(service: str) -> bool:
-        return services.service_exists(service)
+    def list_sources_for_api(api_name: str) -> List[str]:
+        return services.list_sources_for_api(api_name)
+
+    # --- Service Key Level Methods ---
+    @staticmethod
+    def service_exists(service_key: str) -> bool:
+        return services.service_exists(service_key)
 
     @staticmethod
-    def get_service_info(service: str) -> ServiceInfo:
-        return services.get_service_info(service)
+    def get_service_details(service_key: str) -> ServiceMetadata:
+        return services.get_service_details(service_key)
 
+    # --- Path and Key Utilities ---
     @staticmethod
-    def get_auth_types(service: str) -> list[str]:
-        return services.get_auth_types(service)
+    def parse_service_key(service_key: str) -> tuple[str, str, str]:
+        return services.parse_service_key(service_key)
+    
+    @staticmethod
+    def get_service_path(provider: str, source: str, api: str):
+        return services.get_service_path(provider, source, api)
 
-    @staticmethod
-    def get_primary_auth(service: str) -> str:
-        return services.get_primary_auth(service)
-
-    # Operation-level methods
-    @staticmethod
-    def list_operations(service: str) -> List[str]:
-        return operations.list_operations(service)
-
-    @staticmethod
-    def operation_exists(service: str, operation: str) -> bool:
-        return operations.operation_exists(service, operation)
-
-    @staticmethod
-    def get_operation(service: str, operation: str) -> Optional[Operation]:
-        return operations.get_operation(service, operation)
+    

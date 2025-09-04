@@ -1,0 +1,30 @@
+github:
+  - provider: stripe
+    apis:
+      - name: payments
+        url: https://raw.githubusercontent.com/stripe/openapi/refs/heads/master/openapi/spec3.json
+
+  - provider: github
+    apis:
+      - name: rest
+        url: https://raw.githubusercontent.com/github/rest-api-description/refs/heads/main/descriptions/api.github.com/api.github.com.json
+
+  - provider: discord
+    apis:
+      - name: discord
+        url: https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json
+
+  - provider: pokeapi
+    apis:
+      - name: pokeapi
+        url: https://raw.githubusercontent.com/PokeAPI/pokeapi/refs/heads/master/openapi.yml
+
+  - provider: aws
+    apis:
+      - name: sellers
+        url: https://raw.githubusercontent.com/amzn/selling-partner-api-models/refs/heads/main/models/sellers-api-model/sellers.json
+
+  - provider: asana
+    apis:
+      - name: sdk
+        url: https://raw.githubusercontent.com/Asana/openapi/refs/heads/master/defs/asana_sdk_oas.yaml

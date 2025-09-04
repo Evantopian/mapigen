@@ -17,35 +17,34 @@ SRC_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = SRC_DIR / "data"
 FORMAT_VERSION = 3
 
-
-
-
-
-def process_single_service(service_name: str, url: str) -> dict[str, Any]:
-    """Worker function to process a single service, returning metrics."""
-    service_data_dir = DATA_DIR / service_name
-    metrics: Dict[str, Any] = {"service_name": service_name, "url": url}
+def process_spec_file(spec_path: Path) -> dict[str, Any]:
+    """Worker function to process a single OpenAPI spec file, returning metrics."""
     try:
+        # Derive names from path
+        api_name = spec_path.parent.name
+        source_name = spec_path.parent.parent.name
+        provider_name = spec_path.parent.parent.parent.name
+        service_key = f"{provider_name}:{api_name}:{source_name}"
+        
+        metrics: Dict[str, Any] = {"service_key": service_key, "status": "failure"}
+
         t_parse_start = time.perf_counter()
-        compressed_spec_path = service_data_dir / f"{service_name}.openapi.json.zst"
-        compressed_content = compressed_spec_path.read_bytes()
+        compressed_content = spec_path.read_bytes()
         raw_spec = dict(normalize_spec(compressed_content=compressed_content))
         metrics["parse_duration"] = time.perf_counter() - t_parse_start
 
         t_extract_start = time.perf_counter()
-        processed_data = extract_operations_and_components(service_name, raw_spec)
+        processed_data = extract_operations_and_components(service_key, raw_spec)
         metrics["extract_duration"] = time.perf_counter() - t_extract_start
 
         processed_data["servers"] = raw_spec.get("servers", [])
         processed_data["format_version"] = FORMAT_VERSION
-        processed_data["service_name"] = service_name
+        processed_data["service_name"] = api_name # Keep original api name for metadata
         
-        utilize_path = save_metadata(service_name, processed_data, service_data_dir)
+        # Save the processed utilize.json file in the same directory as the spec
+        utilize_path = save_metadata(api_name, processed_data, spec_path.parent)
 
-        # Get reusable param count from the extractor's result
         reusable_param_count = processed_data.get("reusable_param_count", 0)
-
-        # Calculate coverage based on original vs processed op count
         original_op_count = count_openapi_operations(raw_spec)
         processed_op_count = len(processed_data.get("operations", {}))
         coverage = f"{processed_op_count}/{original_op_count}" if original_op_count > 0 else "0/0"
@@ -56,49 +55,55 @@ def process_single_service(service_name: str, url: str) -> dict[str, Any]:
             "processed_op_count": processed_op_count,
             "reusable_param_count": reusable_param_count,
             "coverage": coverage,
-            "utilize_path": utilize_path
-            })
+            "utilize_path": utilize_path,
+            "provider": provider_name,
+            "api": api_name,
+            "source": source_name,
+        })
         return metrics
     except Exception as e:
-        logging.error(f"Failed to process service {service_name}: {e}")
-        metrics["status"] = "failure"
-        return metrics
+        logging.error(f"Failed to process spec {spec_path}: {e}")
+        # Return a failure metric with the key if possible
+        service_key_failure = f"{spec_path.parent.parent.parent.name}:{spec_path.parent.name}:{spec_path.parent.parent.name}"
+        return {"service_key": service_key_failure, "status": "failure"}
 
-def create_balanced_batches(service_info: List[Dict[str, Any]], num_batches: int) -> List[List[Dict[str, Any]]]:
+def create_balanced_batches(specs_to_process: List[Path], num_batches: int) -> List[List[Path]]:
     """Creates balanced batches based on file size using a greedy algorithm."""
-    service_info = [s for s in service_info if s.get("size", 0) > 0]
-    if not service_info:
+    if not specs_to_process:
         return []
 
-    service_info.sort(key=lambda x: x["size"], reverse=True)
+    # Create a list of tuples (path, size)
+    spec_info = [(p, p.stat().st_size) for p in specs_to_process if p.exists()]
+    spec_info.sort(key=lambda x: x[1], reverse=True)
 
-    num_batches = min(num_batches, len(service_info))
+    num_batches = min(num_batches, len(spec_info))
     if num_batches == 0:
         return []
         
-    batches: List[List[Dict[str, Any]]] = [[] for _ in range(num_batches)]
+    batches: List[List[Path]] = [[] for _ in range(num_batches)]
     batch_sizes = [0] * num_batches
 
-    for service in service_info:
+    for path, size in spec_info:
         min_index = batch_sizes.index(min(batch_sizes))
-        batches[min_index].append(service)
-        batch_sizes[min_index] += service["size"]
+        batches[min_index].append(path)
+        batch_sizes[min_index] += size
 
     return [batch for batch in batches if batch]
 
-def run_processing_pipeline(services_to_process: List[Dict[str, Any]], args: Any) -> List[Dict[str, Any]]:
-    """Runs the parallel processing pipeline and returns the results."""
-    logging.info("Creating balanced batches based on file size...")
-    processing_batches = create_balanced_batches(services_to_process, args.process_workers)
-
-    if not services_to_process:
+def run_processing_pipeline(specs_to_process: List[Path], args: Any) -> List[Dict[str, Any]]:
+    """Runs the parallel processing pipeline for all found spec files."""
+    if not specs_to_process:
+        logging.info("No specs found to process.")
         return []
 
-    logging.info(f"Processing {len(services_to_process)} services in {len(processing_batches)} batches...")
+    logging.info("Creating balanced batches based on file size...")
+    processing_batches = create_balanced_batches(specs_to_process, args.process_workers)
+
+    logging.info(f"Processing {len(specs_to_process)} specs in {len(processing_batches)} batches...")
     processing_results: List[Dict[str, Any]] = []
     for batch in tqdm(processing_batches, desc="Processing Batches"):
         with ProcessPoolExecutor(max_workers=args.process_workers) as executor:
-            futures = {executor.submit(process_single_service, service["name"], service["url"]): service["name"] for service in batch}
+            futures = {executor.submit(process_spec_file, spec_path): spec_path for spec_path in batch}
             for future in as_completed(futures):
                 result = future.result()
                 processing_results.append(result)

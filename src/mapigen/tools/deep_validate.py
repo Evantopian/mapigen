@@ -40,35 +40,43 @@ def generate_report(results: List[Dict[str, Any]], total_duration: float):
 def main():
     """Main deep validation function."""
     parser = argparse.ArgumentParser(description="Deep validate service data.")
-    parser.add_argument("service", nargs='?', help="Optional: The name of the service to validate.")
+    parser.add_argument("service_key", nargs='?', help="Optional: The specific service key (e.g., provider:api:source) to validate.")
     args = parser.parse_args()
 
     logging.info("Starting deep validation...")
     overall_start_time = time.perf_counter()
     
-    project_root = Path(__file__).resolve().parent.parent.parent.parent
-    data_root = project_root / "src" / "mapigen" / "data"
+    data_root = Path(__file__).resolve().parent.parent.parent.parent / "src" / "mapigen" / "data"
     
-    if args.service:
-        service_dirs = [data_root / args.service]
-        if not service_dirs[0].exists():
-            logging.error(f"Service '{args.service}' not found.")
+    if args.service_key:
+        try:
+            provider, api, source = args.service_key.split(":")
+            processed_files = [data_root / provider / source / api / f"{api}.utilize.json.zst"]
+            if not processed_files[0].exists():
+                logging.error(f"Service '{args.service_key}' not found at {processed_files[0]}.")
+                sys.exit(1)
+        except ValueError:
+            logging.error(f"Invalid service key format: '{args.service_key}'. Expected 'provider:api:source'.")
             sys.exit(1)
     else:
-        service_dirs = [d for d in data_root.iterdir() if d.is_dir()]
+        processed_files = list(data_root.glob("**/*.utilize.json.zst"))
     
-    if not service_dirs:
-        logging.warning("No service data found to validate.")
+    if not processed_files:
+        logging.warning("No processed data found to validate.")
         return
 
     overall_status = 0
     results: List[Dict[str, Any]] = []
 
-    for service_dir in tqdm(service_dirs, desc="Deep Validating Services"):
-        service_name = service_dir.name
+    for processed_path in tqdm(processed_files, desc="Deep Validating Services"):
+        api_name = processed_path.parent.name
+        source_name = processed_path.parent.parent.name
+        provider_name = processed_path.parent.parent.parent.name
+        service_key = f"{provider_name}:{api_name}:{source_name}"
+
         service_start_time = time.perf_counter()
         metrics: Dict[str, Any] = {
-            "service_name": service_name,
+            "service_key": service_key,
             "status": "success",
             "spec_validation_duration": 0,
             "deep_check_duration": 0,
@@ -77,14 +85,14 @@ def main():
         try:
             # 1. Raw Spec Validation
             t_spec_val_start = time.perf_counter()
-            raw_spec_path = next(service_dir.glob(f"{service_name}.openapi.*", ))
+            raw_spec_path = processed_path.parent / f"{api_name}.openapi.json.zst"
             raw_spec: dict[str, Any] = load_spec(raw_spec_path)
             validate_spec(cast(Mapping[Any, Any], raw_spec))
             metrics["spec_validation_duration"] = time.perf_counter() - t_spec_val_start
 
             # 2. Deep Integrity Checks
             t_deep_check_start = time.perf_counter()
-            utilize_data = load_service_from_disk(service_name)
+            utilize_data = load_service_from_disk(processed_path)
             reusable_components: dict[str, Parameter] = utilize_data.components.parameters
             operations: dict[str, Operation] = utilize_data.operations
             total_errors = 0
@@ -105,7 +113,7 @@ def main():
                         break
                 
                 if not original_op_details:
-                    logging.warning(f"[{service_name}] Operation '{op_id}' not in raw spec. Skipping.")
+                    logging.warning(f"[{service_key}] Operation '{op_id}' not in raw spec. Skipping.")
                     continue
 
                 ground_truth_params = get_params_from_operation(original_op_details, original_path_params, raw_spec)
@@ -115,11 +123,11 @@ def main():
                     if not isinstance(param, ParameterRef):
                         continue
                     
-                    fingerprint: str = param.ref.split("/")[-1]
-                    canonical_param: Parameter | None = reusable_components.get(fingerprint)
+                    component_name: str = param.component_name
+                    canonical_param: Parameter | None = reusable_components.get(component_name)
 
                     if not canonical_param:
-                        logging.error(f"[{op_id}] Broken reference for fingerprint '{fingerprint}'.")
+                        logging.error(f"[{op_id}] Broken reference for component '{component_name}'.")
                         total_errors += 1
                         continue
 
@@ -144,7 +152,7 @@ def main():
                 raise ValueError(f"Found {total_errors} integrity issues.")
 
         except Exception:
-            logging.error(f"Validation failed for {service_name}:")
+            logging.error(f"Validation failed for {service_key}:")
             traceback.print_exc()
             metrics["status"] = "failure"
             overall_status = 1

@@ -24,10 +24,12 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 
-def get_all_service_names() -> set[str]:
-    """Gets all available service names from the DiscoveryClient."""
+def get_all_service_keys() -> set[str]:
+    """Gets all available service keys from the DiscoveryClient."""
     try:
-        return set(DiscoveryClient().list_services())
+        # This should be updated to get all service keys
+        # For now, we will just get all apis and assume a default source
+        return set(DiscoveryClient().list_apis())
     except Exception as e:
         logging.error("Failed to discover services: %s", e)
         return set()
@@ -136,15 +138,15 @@ def main():
     env = Environment(loader=FileSystemLoader(template_dir), trim_blocks=True, lstrip_blocks=True)
     template = env.get_template("integration_test.py.j2")
 
-    all_services = get_all_service_names()
+    all_services = DiscoveryClient().list_apis()
     if not all_services:
         logging.error("No services found. Aborting.")
         return
 
     existing_tests = get_existing_integration_tests(args.output_dir)
-    services_to_generate = all_services - existing_tests
+    services_to_generate = set(all_services) - existing_tests
     if args.service:
-        services_to_generate = set(args.service) & all_services
+        services_to_generate = set(args.service) & set(all_services)
 
     if not services_to_generate:
         logging.info("No new test files need to be generated.")
@@ -160,7 +162,10 @@ def main():
 
         logging.info("Preparing to generate test for '%s' at %s", service_name, output_file)
         try:
-            service_data = load_service_from_disk(service_name)
+            discovery = DiscoveryClient()
+            provider, api, source = discovery.parse_service_key(service_name) # service_name is actually a service_key here
+            service_path = discovery.get_service_path(provider, source, api)
+            service_data = load_service_from_disk(service_path)
             test_cases = create_sampled_test_cases(service_data)
             if not test_cases:
                 logging.warning("No GET or POST operations found for service %s, skipping.", service_name)

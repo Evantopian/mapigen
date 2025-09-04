@@ -1,0 +1,5 @@
+custom:
+  - provider: spotify
+    apis:
+      - name: web
+        url: https://developer.spotify.com/reference/web-api/open-api-schema.yaml

@@ -1,9 +1,8 @@
 import argparse
 import json
-from mapigen import Mapi
-from mapigen.cache.storage import load_service_from_disk
+
+from mapigen.discovery import DiscoveryClient
 import msgspec
-from mapigen.models import ParameterRef
 
 from typing import Any
 
@@ -18,58 +17,28 @@ def main():
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # --- list-services command ---
-    subparsers.add_parser("list-services", help="List all available service names.")
+    # --- list-apis command ---
+    subparsers.add_parser("list-apis", help="List all available API names.")
 
-    # --- list-ops command ---
-    list_ops_parser = subparsers.add_parser("list-ops", help="List all operations for a specific service.")
-    list_ops_parser.add_argument("service", help="The name of the service.")
+    # --- list-sources command ---
+    list_sources_parser = subparsers.add_parser("list-sources", help="List all available sources for a specific API.")
+    list_sources_parser.add_argument("api", help="The name of the API.")
 
-    # --- get-op command ---
-    get_op_parser = subparsers.add_parser("get-op", help="Get the detailed schema for a specific operation.")
-    get_op_parser.add_argument("service", help="The name of the service.")
-    get_op_parser.add_argument("operation", help="The name of the operation.")
-
-    # --- get-auth command ---
-    get_auth_parser = subparsers.add_parser("get-auth", help="Get the authentication details for a specific service.")
-    get_auth_parser.add_argument("service", help="The name of the service.")
+    # --- get-service command ---
+    get_service_parser = subparsers.add_parser("get-service", help="Get the detailed metadata for a specific service key.")
+    get_service_parser.add_argument("service_key", help="The full service key (e.g., provider:api:source).")
 
     args = parser.parse_args()
-    client = Mapi()
+    discovery = DiscoveryClient()
 
-    if args.command == "list-services":
-        print_json(client.discovery.list_services())
+    if args.command == "list-apis":
+        print_json(discovery.list_apis())
     
-    elif args.command == "list-ops":
-        print_json(client.discovery.list_operations(args.service))
+    elif args.command == "list-sources":
+        print_json(discovery.list_sources_for_api(args.api))
 
-    elif args.command == "get-auth":
-        auth_info = {
-            "auth_types": client.discovery.get_auth_types(args.service),
-            "primary_auth": client.discovery.get_primary_auth(args.service)
-        }
-        print_json(auth_info)
-
-    elif args.command == "get-op":
-        operation_data = client.discovery.get_operation(args.service, args.operation)
-        if operation_data:
-            full_service_data = load_service_from_disk(args.service)
-            resolved_params = []
-            for param in operation_data.parameters:
-                if isinstance(param, ParameterRef):
-                    ref_path = param.ref
-                    component_name = ref_path.split("/")[-1]
-                    param_details = full_service_data.components.parameters.get(component_name)
-                    if param_details:
-                        resolved_params.append(param_details)
-                else:
-                    resolved_params.append(param)
-            
-            operation_data_dict = msgspec.to_builtins(operation_data)
-            operation_data_dict["parameters"] = msgspec.to_builtins(resolved_params)
-            print_json(operation_data_dict)
-        else:
-            print(f"Error: Operation '{args.operation}' not found in service '{args.service}'.")
+    elif args.command == "get-service":
+        print_json(msgspec.to_builtins(discovery.get_service_details(args.service_key)))
 
 if __name__ == "__main__":
     main()

@@ -8,18 +8,23 @@ from mapigen.cache import storage
 from mapigen.models import ServiceData
 
 
+from mapigen.discovery import DiscoveryClient
+
 def test_load_service_from_disk_uncompressed(tmp_path: Path, monkeypatch):
     """Tests that load_service_from_disk can load an uncompressed file."""
     # Use pokeapi as it is small and does not require auth
-    service_name = "pokeapi"
-    service_data = storage.load_service_from_disk(service_name)
+    service_key = "pokeapi:pokeapi:github"
+    discovery = DiscoveryClient()
+    provider, api, source = discovery.parse_service_key(service_key)
+    service_path = discovery.get_service_path(provider, source, api)
+    service_data = storage.load_service_from_disk(service_path)
     assert isinstance(service_data, ServiceData)
-    assert service_data.service_name == service_name
+    assert service_data.service_name == api
 
 def test_load_service_from_disk_file_not_found():
     """Tests that load_service_from_disk raises FileNotFoundError for a missing service."""
     with pytest.raises(FileNotFoundError):
-        storage.load_service_from_disk("non_existent_service")
+        storage.load_service_from_disk(Path("/non/existent/path"))
 
 def test_pinned_lru_cache_eviction():
     """Tests that the LRU cache evicts items when maxsize is reached."""

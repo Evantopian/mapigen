@@ -7,7 +7,7 @@ from typing import Dict
 
 import msgspec
 
-from mapigen.models import ServiceInfo, ServiceRegistry
+from mapigen.models import ServiceMetadata, ServiceRegistry
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -19,44 +19,51 @@ class RegistryService:
         self.data_dir = data_dir
         self.registry_path = registry_path
 
-    def build_registry(self) -> Dict[str, ServiceInfo]:
-        """Builds the service registry from metadata files."""
-        service_registry: Dict[str, ServiceInfo] = {}
-        for service_dir in self.data_dir.iterdir():
-            if service_dir.is_dir():
-                metadata_path = service_dir / "metadata.yml"
-                if metadata_path.exists():
-                    try:
-                        metadata = msgspec.yaml.decode(metadata_path.read_text())
-                        service_registry[service_dir.name] = ServiceInfo(
-                            operation_count=metadata.get("operation_count", 0),
-                            auth_types=metadata.get("auth_types", []),
-                            primary_auth=metadata.get("primary_auth", "none"),
-                            popularity_rank=metadata.get("popularity_rank", 999),
-                        )
-                    except (msgspec.ValidationError, TypeError) as e:
-                        logging.warning(f"Skipping {service_dir.name} due to invalid metadata: {e}")
-        return service_registry
+    def build_registry(self) -> ServiceRegistry:
+        """Builds the service registry from metadata files found in the data directory."""
+        service_metadata: Dict[str, ServiceMetadata] = {}
+        
+        for metadata_path in self.data_dir.glob("**/*/metadata.yml"):
+            try:
+                metadata = msgspec.yaml.decode(metadata_path.read_text())
+                provider = metadata.get("provider")
+                api = metadata.get("api")
+                source = metadata.get("source")
 
-    def save_registry(self, services: Dict[str, ServiceInfo]):
-        """Saves the service registry to a file."""
-        if not services:
+                if not all([provider, api, source]):
+                    logging.warning(f"Skipping {metadata_path} due to missing provider, api, or source.")
+                    continue
+
+                service_key = f"{provider}:{api}:{source}"
+                
+                # For now, 'tested' is hardcoded. This can be enhanced later.
+                service_metadata[service_key] = ServiceMetadata(
+                    resolvable=True,
+                    tested=False, # Placeholder
+                    last_updated=metadata.get("updated_at", datetime.now(timezone.utc).isoformat())
+                )
+            except (msgspec.ValidationError, TypeError, KeyError) as e:
+                logging.warning(f"Skipping {metadata_path} due to invalid metadata: {e}")
+        
+        return ServiceRegistry(
+            version="2.0", # Bump version for new structure
+            generated_at=datetime.now(timezone.utc).isoformat(),
+            services=service_metadata
+        )
+
+    def save_registry(self, registry: ServiceRegistry):
+        """Saves the service registry to a file using msgspec for performance."""
+        if not registry.services:
             logging.warning("Service registry is empty. Nothing to save.")
             return
 
-        logging.info(f"Writing global service registry to {self.registry_path}...")
+        logging.info(f"Writing global service registry with {len(registry.services)} entries to {self.registry_path}...")
         
-        # Create the top-level registry object
-        full_registry = ServiceRegistry(
-            version="1.0",
-            generated_at=datetime.now(timezone.utc).isoformat(),
-            services=services
-        )
-
-        # Convert msgspec.Structs to built-in types for pretty-printing
-        builtins_registry = msgspec.to_builtins(full_registry)
+        # Use msgspec to encode the registry for performance and correctness
+        encoded_registry = msgspec.json.encode(registry)
         
-        # Use standard json library for pretty-printing
+        # Pretty-print using standard json for readability
+        pretty_registry = json.loads(encoded_registry)
         with open(self.registry_path, "w", encoding="utf-8") as f:
-            json.dump(builtins_registry, f, indent=2)
+            json.dump(pretty_registry, f, indent=2)
             f.write("\n")

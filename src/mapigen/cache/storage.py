@@ -20,24 +20,21 @@ def _load_zstd_metadata(zst_path: Path) -> ServiceData:
     return msgspec.json.decode(decompressed, type=ServiceData)
 
 
-def load_service_from_disk(service_name: str) -> ServiceData:
-    """Loads the metadata for a single service, checking for uncompressed or compressed files."""
-    data_dir = Path(__file__).resolve().parent.parent / "data"
-    service_dir = data_dir / service_name
-
-    uncompressed_path = service_dir / f"{service_name}.utilize.json"
-    compressed_path = service_dir / f"{service_name}.utilize.json.zst"
+def load_service_from_disk(service_path: Path) -> ServiceData:
+    """Loads the metadata for a single service from a specific file path."""
+    uncompressed_path = service_path.with_suffix(".json")
+    compressed_path = service_path.with_suffix(".json.zst")
 
     if uncompressed_path.exists():
-        logging.info(f"Loading uncompressed service data for '{service_name}' from disk.")
+        logging.info(f"Loading uncompressed service data from {uncompressed_path}")
         return msgspec.json.decode(uncompressed_path.read_bytes(), type=ServiceData)
     
     if compressed_path.exists():
-        logging.info(f"Loading compressed service data for '{service_name}' from disk.")
+        logging.info(f"Loading compressed service data from {compressed_path}")
         return _load_zstd_metadata(compressed_path)
 
     raise FileNotFoundError(
-        f"Service data for '{service_name}' not found. Please ensure data is populated."
+        f"Service data not found at {service_path.parent}. Please ensure data is populated."
     )
 
 class PinnedLRUCache:

@@ -72,17 +72,16 @@ class ServiceData(BaseStruct, frozen=True):
     components: Components
     operations: Dict[str, Operation]
 
-# --- Registry Model ---
+# --- Registry Models ---
 
-class ServiceInfo(BaseStruct, frozen=True):
-    """Service metadata for registry discovery (services.json)."""
-    operation_count: PositiveInt
-    popularity_rank: PositiveInt
-    auth_types: List[str] = msgspec.field(default_factory=list)
-    primary_auth: str = "none"
+class ServiceMetadata(BaseStruct, frozen=True):
+    """Service metadata for the new registry format."""
+    resolvable: bool
+    tested: bool
+    last_updated: str = field(name="lastUpdated")
 
 class ServiceRegistry(BaseStruct, frozen=True):
     """Complete service registry index."""
     version: NonEmptyStr
     generated_at: str  # ISO 8601 timestamp
-    services: Dict[str, ServiceInfo]
+    services: Dict[str, ServiceMetadata]

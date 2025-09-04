@@ -4,10 +4,10 @@ This document tracks which API specifications have had their authentication info
 
 ## Services with Active Overrides
 
-The following services are using authentication details from `overrides.json`:
-- `github`
+No services are currently using an authentication override.
 
 ## Services Requiring Attention
 
 The following services have no declared authentication types after processing and may require an override to be added to `overrides.json`:
-- `aws-sellers`
+- `aws:sellers:github`
+- `github:rest:github`
