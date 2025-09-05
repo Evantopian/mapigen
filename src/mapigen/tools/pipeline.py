@@ -3,7 +3,6 @@ import logging
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from itertools import islice
-from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, List
 
 from tqdm import tqdm
@@ -12,10 +11,9 @@ from mapigen.metadata.converter import normalize_spec
 from mapigen.metadata.extractor import extract_operations_and_components, save_metadata
 from mapigen.tools.utils import extract_auth_info
 from mapigen.utils.memory_manager import trigger_gc_if_needed
+from mapigen.utils.path_utils import get_legacy_service_path
 
 # Define paths relative to this module
-SRC_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = SRC_DIR / "data"
 FORMAT_VERSION = 3
 
 def batcher(iterable: Iterable, batch_size: int) -> Iterator[list]:
@@ -26,7 +24,7 @@ def batcher(iterable: Iterable, batch_size: int) -> Iterator[list]:
 
 def process_single_service(service_name: str, url: str) -> dict[str, Any]:
     """Worker function to process a single service, returning metrics."""
-    service_data_dir = DATA_DIR / service_name
+    service_data_dir = get_legacy_service_path(service_name)
     metrics: Dict[str, Any] = {"service_name": service_name, "url": url}
     try:
         t_parse_start = time.perf_counter()

@@ -3,7 +3,6 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from itertools import islice
-from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, List
 
 import msgspec
@@ -11,10 +10,8 @@ import niquests
 from tqdm import tqdm
 
 from mapigen.utils.compression_utils import compress_with_zstd
+from mapigen.utils.path_utils import get_legacy_service_path
 
-# Define paths relative to this file's location
-SRC_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = SRC_DIR / "data"
 
 def fetch_single_spec(
     service_name: str, url: str, session: niquests.Session
@@ -37,7 +34,7 @@ def fetch_single_spec(
 
         compressed_content = compress_with_zstd(content)
         
-        service_data_dir = DATA_DIR / service_name
+        service_data_dir = get_legacy_service_path(service_name)
         service_data_dir.mkdir(parents=True, exist_ok=True)
         spec_path = service_data_dir / f"{service_name}.openapi.json.zst"
         spec_path.write_bytes(compressed_content)

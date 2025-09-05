@@ -3,7 +3,6 @@ import sys
 import time
 import logging
 import traceback
-from pathlib import Path
 from typing import Any, cast, Mapping, List, Dict
 
 import msgspec
@@ -13,6 +12,7 @@ from openapi_spec_validator import validate_spec
 from mapigen.models import Operation, Parameter, ParameterRef
 from mapigen.tools.utils import load_spec, get_params_from_operation
 from mapigen.cache.storage import load_service_from_disk
+from mapigen.utils.path_utils import get_data_dir
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -46,8 +46,7 @@ def main():
     logging.info("Starting deep validation...")
     overall_start_time = time.perf_counter()
     
-    project_root = Path(__file__).resolve().parent.parent.parent.parent
-    data_root = project_root / "src" / "mapigen" / "data"
+    data_root = get_data_dir()
     
     if args.service:
         service_dirs = [data_root / args.service]

@@ -10,6 +10,7 @@ import msgspec
 import zstandard as zstd
 
 from ..models import ServiceData
+from ..utils.path_utils import get_legacy_service_path
 
 
 def _load_zstd_metadata(zst_path: Path) -> ServiceData:
@@ -22,8 +23,7 @@ def _load_zstd_metadata(zst_path: Path) -> ServiceData:
 
 def load_service_from_disk(service_name: str) -> ServiceData:
     """Loads the metadata for a single service, checking for uncompressed or compressed files."""
-    data_dir = Path(__file__).resolve().parent.parent / "data"
-    service_dir = data_dir / service_name
+    service_dir = get_legacy_service_path(service_name)
 
     uncompressed_path = service_dir / f"{service_name}.utilize.json"
     compressed_path = service_dir / f"{service_name}.utilize.json.zst"

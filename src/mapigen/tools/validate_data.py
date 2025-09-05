@@ -12,13 +12,13 @@ from mapigen.models import ServiceData, Parameter, ParameterRef
 from mapigen.tools.utils import load_spec, count_openapi_operations
 from mapigen.cache.storage import load_service_from_disk
 from mapigen.tools.populate_data import FORMAT_VERSION
+from mapigen.utils.path_utils import get_data_dir
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 # Define paths
-ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
-DATA_DIR = ROOT_DIR / "src" / "mapigen" / "data"
+DATA_DIR = get_data_dir()
 
 def validate_operations_and_refs(data: ServiceData, service_name: str) -> list[str]:
     """Validates the integrity of operations and their parameter references."""

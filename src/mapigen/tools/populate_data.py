@@ -15,6 +15,7 @@ from mapigen.services.registry_service import RegistryService
 from mapigen.tools.pipeline import run_processing_pipeline
 from mapigen.tools.reporting import generate_auth_notice, generate_performance_report
 from mapigen.utils.compression_utils import compress_with_zstd
+from mapigen.utils.path_utils import get_legacy_service_path, get_data_dir
 
 FORMAT_VERSION = 3
 
@@ -26,7 +27,7 @@ logging.basicConfig(
 # Define paths
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
 SRC_DIR = ROOT_DIR / "src" / "mapigen"
-DATA_DIR = SRC_DIR / "data"
+DATA_DIR = get_data_dir()
 REGISTRY_DIR = SRC_DIR / "registry"
 CUSTOM_SOURCES_PATH = REGISTRY_DIR / "custom_sources.json"
 GITHUB_SOURCES_PATH = REGISTRY_DIR / "github_sources.json"
@@ -58,7 +59,7 @@ def load_configuration() -> tuple[dict[str, Any], dict[str, Any]]:
     return all_sources, overrides
 
 def write_metadata(service_name: str, result: dict[str, Any], overrides: dict[str, Any]):
-    service_data_dir = DATA_DIR / service_name
+    service_data_dir = get_legacy_service_path(service_name)
     metadata_yml_path = service_data_dir / "metadata.yml"
     first_accessed_time = datetime.now(timezone.utc).isoformat()
     if metadata_yml_path.exists():
@@ -111,7 +112,7 @@ def main():
     # --- Processing Phase ---
     services_to_process_tuples = list(all_sources.items())
     if not args.force_reprocess:
-        services_to_process_tuples = [(name, url) for name, url in services_to_process_tuples if not (DATA_DIR / name / f"{name}.utilize.json.zst").exists() and not (DATA_DIR / name / f"{name}.utilize.json").exists()]
+        services_to_process_tuples = [(name, url) for name, url in services_to_process_tuples if not (get_legacy_service_path(name) / f"{name}.utilize.json.zst").exists() and not (get_legacy_service_path(name) / f"{name}.utilize.json").exists()]
 
     if not services_to_process_tuples:
         logging.info("All services are already processed. Exiting.")
@@ -120,7 +121,7 @@ def main():
     services_to_process: List[Dict[str, Any]] = []
     for name, url in services_to_process_tuples:
         try:
-            size = (DATA_DIR / name / f"{name}.openapi.json.zst").stat().st_size
+            size = (get_legacy_service_path(name) / f"{name}.openapi.json.zst").stat().st_size
             services_to_process.append({"name": name, "url": url, "size": size})
         except FileNotFoundError:
             logging.warning(f"Could not find compressed spec for {name}. It will be skipped during processing.")
