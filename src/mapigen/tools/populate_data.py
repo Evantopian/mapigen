@@ -15,7 +15,7 @@ from mapigen.services.registry_service import RegistryService
 from mapigen.tools.pipeline import run_processing_pipeline
 from mapigen.tools.reporting import generate_auth_notice, generate_performance_report
 from mapigen.utils.compression_utils import compress_with_zstd
-from mapigen.utils.path_utils import get_legacy_service_path, get_data_dir
+from mapigen.utils.path_utils import get_service_data_path, get_data_dir
 
 FORMAT_VERSION = 3
 
@@ -30,7 +30,7 @@ SRC_DIR = ROOT_DIR / "src" / "mapigen"
 DATA_DIR = get_data_dir()
 REGISTRY_DIR = SRC_DIR / "registry"
 CUSTOM_SOURCES_PATH = REGISTRY_DIR / "custom_sources.json"
-GITHUB_SOURCES_PATH = REGISTRY_DIR / "github_sources.json"
+GITHUB_SOURCES_PATH = REGISTRY_DIR / "github_sources.yaml"
 OVERRIDES_PATH = REGISTRY_DIR / "overrides.json"
 SERVICES_JSON_PATH = SRC_DIR / "services.json"
 
@@ -43,34 +43,51 @@ def setup_arg_parser() -> argparse.Namespace:
     parser.add_argument("--force-reprocess", action="store_true", help="Force reprocessing of all specs.")
     parser.add_argument("--cache", action="store_true", help="Use cached downloads but force reprocessing.")
     parser.add_argument("--no-compress-utilize", action="store_true", help="Do not compress final utilize.json files.")
+    parser.add_argument("--no-compress-original", action="store_true", help="Do not compress original downloaded specs, for debugging.")
     parser.add_argument("--memory-threshold", type=float, default=2048.0, help="Memory threshold in MB to trigger garbage collection.")
     return parser.parse_args()
 
-def load_configuration() -> tuple[dict[str, Any], dict[str, Any]]:
-    all_sources: dict[str, str] = {}
-    json_decoder = msgspec.json.Decoder()
-    if CUSTOM_SOURCES_PATH.exists():
-        all_sources.update(json_decoder.decode(CUSTOM_SOURCES_PATH.read_bytes()))
-    if GITHUB_SOURCES_PATH.exists():
-        all_sources.update(json_decoder.decode(GITHUB_SOURCES_PATH.read_bytes()))
+def load_configuration() -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Loads configuration from the new YAML source files."""
+    all_sources: list[dict[str, Any]] = []
+
+    source_files = {
+        "github": REGISTRY_DIR / "github_sources.yaml",
+        "custom": REGISTRY_DIR / "custom_sources.yaml",
+    }
+
+    for source, path in source_files.items():
+        if path.exists():
+            try:
+                entries = msgspec.yaml.decode(path.read_bytes(), type=List[Dict[str, str]])
+                for entry in entries:
+                    entry["source"] = source
+                all_sources.extend(entries)
+            except (msgspec.ValidationError, TypeError) as e:
+                logging.error(f"Failed to parse {path}: {e}")
+
     overrides: dict[str, Any] = {}
     if OVERRIDES_PATH.exists():
-        overrides = json_decoder.decode(OVERRIDES_PATH.read_bytes())
+        overrides = msgspec.json.decode(OVERRIDES_PATH.read_bytes())
     return all_sources, overrides
 
-def write_metadata(service_name: str, result: dict[str, Any], overrides: dict[str, Any]):
-    service_data_dir = get_legacy_service_path(service_name)
+def write_metadata(result: dict[str, Any], overrides: dict[str, Any]):
+    provider = result["provider"]
+    api = result["api"]
+    source = result["source"]
+    service_data_dir = get_service_data_path(provider, api, source)
+    service_data_dir.mkdir(parents=True, exist_ok=True)
     metadata_yml_path = service_data_dir / "metadata.yml"
     first_accessed_time = datetime.now(timezone.utc).isoformat()
     if metadata_yml_path.exists():
         try:
-            existing_metadata = msgspec.yaml.decode(metadata_yml_path.read_text())
+            existing_metadata = msgspec.yaml.decode(metadata_yml_path.read_text(), type=Dict[str, Any])
             first_accessed_time = existing_metadata.get("first_accessed", first_accessed_time)
-        except (IOError, msgspec.ValidationError):
+        except (IOError, msgspec.ValidationError, TypeError):
             pass
     final_auth_info = result["auth_info"].copy()
-    if service_name in overrides and "auth" in overrides[service_name]:
-        final_auth_info.update(overrides[service_name]["auth"])
+    if api in overrides and "auth" in overrides[api]:
+        final_auth_info.update(overrides[api]["auth"])
     metadata_content = {
         "format_version": FORMAT_VERSION, "first_accessed": first_accessed_time,
         "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -80,7 +97,7 @@ def write_metadata(service_name: str, result: dict[str, Any], overrides: dict[st
         "coverage": result.get("coverage", "N/A"),
         "auth_types": final_auth_info["auth_types"],
         "primary_auth": final_auth_info["primary_auth"],
-        "popularity_rank": get_rank(service_name),
+        "popularity_rank": get_rank(api),
     }
     metadata_yml_path.write_bytes(msgspec.yaml.encode(metadata_content))
 
@@ -107,25 +124,28 @@ def main():
     download_results: List[Dict[str, Any]] = []
     if not args.skip_download:
         download_batch_size = 50
-        download_results = fetch_specs_concurrently(all_sources, download_batch_size, args.download_workers)
+        download_results = fetch_specs_concurrently(all_sources, download_batch_size, args)
     
     # --- Processing Phase ---
-    services_to_process_tuples = list(all_sources.items())
+    services_to_process = all_sources
     if not args.force_reprocess:
-        services_to_process_tuples = [(name, url) for name, url in services_to_process_tuples if not (get_legacy_service_path(name) / f"{name}.utilize.json.zst").exists() and not (get_legacy_service_path(name) / f"{name}.utilize.json").exists()]
+        services_to_process = [
+            s for s in all_sources 
+            if not (get_service_data_path(s['provider'], s['api'], s['source']) / f"{s['api']}.utilize.json.zst").exists() and 
+               not (get_service_data_path(s['provider'], s['api'], s['source']) / f"{s['api']}.utilize.json").exists()
+        ]
 
-    if not services_to_process_tuples:
+    if not services_to_process:
         logging.info("All services are already processed. Exiting.")
         return
 
-    services_to_process: List[Dict[str, Any]] = []
-    for name, url in services_to_process_tuples:
+    for entry in services_to_process:
         try:
-            size = (get_legacy_service_path(name) / f"{name}.openapi.json.zst").stat().st_size
-            services_to_process.append({"name": name, "url": url, "size": size})
+            size_path = get_service_data_path(entry['provider'], entry['api'], entry['source']) / f"{entry['api']}.openapi.json.zst"
+            entry['size'] = size_path.stat().st_size if size_path.exists() else 0
         except FileNotFoundError:
-            logging.warning(f"Could not find compressed spec for {name}. It will be skipped during processing.")
-            services_to_process.append({"name": name, "url": url, "size": 0})
+            logging.warning(f"Could not find compressed spec for {entry['api']}. It will be skipped during processing.")
+            entry['size'] = 0
 
     processing_results = run_processing_pipeline(services_to_process, args)
 
@@ -136,13 +156,13 @@ def main():
 
     for result in processing_results:
         if result["status"] == "success":
-            service_name = result["service_name"]
-            write_metadata(service_name, result, overrides)
+            write_metadata(result, overrides)
             
             handle_utilize_compression(result["utilize_path"], args)
             
             auth_info = result.get("auth_info", {})
             if auth_info and not auth_info.get("auth_types"):
+                service_name = result["api"]
                 if service_name in overrides and "auth" in overrides[service_name]:
                     services_with_active_override.append(service_name)
                 else:

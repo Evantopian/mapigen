@@ -1,0 +1,13 @@
+# APIs sourced from GitHub
+- provider: stripe
+  api: stripe
+  url: https://raw.githubusercontent.com/stripe/openapi/refs/heads/master/openapi/spec3.json
+- provider: github
+  api: github
+  url: https://raw.githubusercontent.com/github/rest-api-description/refs/heads/main/descriptions/api.github.com/api.github.com.json
+- provider: discord
+  api: discord
+  url: https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json
+- provider: pokeapi
+  api: pokeapi
+  url: https://raw.githubusercontent.com/PokeAPI/pokeapi/refs/heads/master/openapi.yml

@@ -11,15 +11,14 @@ from mapigen.models import ServiceData
 def test_load_service_from_disk_uncompressed(tmp_path: Path, monkeypatch):
     """Tests that load_service_from_disk can load an uncompressed file."""
     # Use pokeapi as it is small and does not require auth
-    service_name = "pokeapi"
-    service_data = storage.load_service_from_disk(service_name)
+    service_data = storage.load_service_from_disk("pokeapi", "pokeapi", "github")
     assert isinstance(service_data, ServiceData)
-    assert service_data.service_name == service_name
+    assert service_data.service_name == "pokeapi"
 
 def test_load_service_from_disk_file_not_found():
     """Tests that load_service_from_disk raises FileNotFoundError for a missing service."""
     with pytest.raises(FileNotFoundError):
-        storage.load_service_from_disk("non_existent_service")
+        storage.load_service_from_disk("non_existent", "non_existent", "non_existent")
 
 def test_pinned_lru_cache_eviction():
     """Tests that the LRU cache evicts items when maxsize is reached."""

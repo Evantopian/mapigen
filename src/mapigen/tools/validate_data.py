@@ -12,13 +12,11 @@ from mapigen.models import ServiceData, Parameter, ParameterRef
 from mapigen.tools.utils import load_spec, count_openapi_operations
 from mapigen.cache.storage import load_service_from_disk
 from mapigen.tools.populate_data import FORMAT_VERSION
-from mapigen.utils.path_utils import get_data_dir
+from mapigen.discovery import DiscoveryClient
+from mapigen.utils.path_utils import get_service_data_path
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
-
-# Define paths
-DATA_DIR = get_data_dir()
 
 def validate_operations_and_refs(data: ServiceData, service_name: str) -> list[str]:
     """Validates the integrity of operations and their parameter references."""
@@ -65,57 +63,63 @@ def main():
     logging.info("Starting validation of data files...")
     overall_start_time = time.perf_counter()
 
-    service_dirs: list[Path] = [d for d in DATA_DIR.iterdir() if d.is_dir()]
-    if not service_dirs:
-        logging.warning("No service data found to validate.")
+    client = DiscoveryClient()
+    try:
+        providers = client.list_providers()
+    except FileNotFoundError:
+        logging.warning("No service registry found. Skipping validation.")
         return
 
     total_success: int = 0
     total_failure: int = 0
     results: List[Dict[str, Any]] = []
 
-    for service_dir in tqdm(service_dirs, desc="Validating Services"):
-        service_name: str = service_dir.name
-        service_start_time = time.perf_counter()
-        failures: list[str] = []
-        
-        try:
-            # 1. Check for metadata.yml
-            metadata_path: Path = service_dir / "metadata.yml"
-            if not metadata_path.exists():
-                failures.append("Missing metadata.yml file.")
-            else:
-                metadata: dict[str, Any] = yaml.safe_load(metadata_path.read_text())
-                if metadata.get("format_version") != FORMAT_VERSION:
-                    failures.append(f"Incorrect format_version in metadata.yml (expected {FORMAT_VERSION}).")
+    for provider in tqdm(providers, desc="Validating Providers"):
+        for api in client.list_apis(provider):
+            api_info = client.get_api_info(provider, api)
+            for source in api_info.sources:
+                service_name = f"{provider}/{api}/{source}"
+                service_start_time = time.perf_counter()
+                failures: list[str] = []
+                
+                try:
+                    service_data_dir = get_service_data_path(provider, api, source)
+                    # 1. Check for metadata.yml
+                    metadata_path: Path = service_data_dir / "metadata.yml"
+                    if not metadata_path.exists():
+                        failures.append("Missing metadata.yml file.")
+                    else:
+                        metadata: dict[str, Any] = yaml.safe_load(metadata_path.read_text())
+                        if metadata.get("format_version") != FORMAT_VERSION:
+                            failures.append(f"Incorrect format_version in metadata.yml (expected {FORMAT_VERSION}).")
 
-            # 2. Check for processed data and its integrity
-            processed_data = load_service_from_disk(service_name)
-            integrity_errors: list[str] = validate_operations_and_refs(processed_data, service_name)
-            if integrity_errors:
-                failures.extend(integrity_errors)
+                    # 2. Check for processed data and its integrity
+                    processed_data = load_service_from_disk(provider, api, source)
+                    integrity_errors: list[str] = validate_operations_and_refs(processed_data, service_name)
+                    if integrity_errors:
+                        failures.extend(integrity_errors)
 
-            # 3. Compare operation counts with raw spec
-            raw_spec_files: list[Path] = list(service_dir.glob(f"{service_name}.openapi.*{''}"))
-            if not raw_spec_files:
-                logging.warning(f"[{service_name}] No raw OpenAPI spec file found. Skipping op count comparison.")
-            else:
-                raw_spec: dict[str, Any] = load_spec(raw_spec_files[0])
-                raw_op_count = count_openapi_operations(raw_spec)
-                processed_op_count: int = len(processed_data.operations)
-                if raw_op_count != processed_op_count:
-                    failures.append(f"Op count mismatch: Raw spec {raw_op_count}, processed {processed_op_count}.")
+                    # 3. Compare operation counts with raw spec
+                    raw_spec_files: list[Path] = list(service_data_dir.glob(f"{api}.openapi.*{''}"))
+                    if not raw_spec_files:
+                        logging.warning(f"[{service_name}] No raw OpenAPI spec file found. Skipping op count comparison.")
+                    else:
+                        raw_spec: dict[str, Any] = load_spec(raw_spec_files[0])
+                        raw_op_count = count_openapi_operations(raw_spec)
+                        processed_op_count: int = len(processed_data.operations)
+                        if raw_op_count != processed_op_count:
+                            failures.append(f"Op count mismatch: Raw spec {raw_op_count}, processed {processed_op_count}.")
 
-            if failures:
-                raise ValueError(", ".join(failures))
+                    if failures:
+                        raise ValueError(", ".join(failures))
 
-            results.append({"service_name": service_name, "status": "success", "duration": time.perf_counter() - service_start_time})
-            total_success += 1
+                    results.append({"service_name": service_name, "status": "success", "duration": time.perf_counter() - service_start_time})
+                    total_success += 1
 
-        except Exception as e:
-            logging.error(f"Validation failed for {service_name}: {e}")
-            results.append({"service_name": service_name, "status": "failure", "duration": time.perf_counter() - service_start_time})
-            total_failure += 1
+                except Exception as e:
+                    logging.error(f"Validation failed for {service_name}: {e}")
+                    results.append({"service_name": service_name, "status": "failure", "duration": time.perf_counter() - service_start_time})
+                    total_failure += 1
 
     total_duration = time.perf_counter() - overall_start_time
     generate_report(results, total_duration)

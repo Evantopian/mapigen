@@ -1,42 +1,75 @@
 {
-  "version": "1.0",
-  "generated_at": "2025-09-04T06:09:44.705443+00:00",
-  "services": {
+  "version": "2.0",
+  "generated_at": "2025-09-05T23:03:52.368609+00:00",
+  "providers": {
     "github": {
-      "operation_count": 1064,
-      "popularity_rank": 1,
-      "auth_types": [
-        "bearer_token",
-        "basic_auth"
-      ],
-      "primary_auth": "bearer_token"
+      "github": {
+        "sources": [
+          "github"
+        ],
+        "operation_count": 1060,
+        "popularity_rank": 1,
+        "auth_types": [
+          "bearer_token",
+          "basic_auth"
+        ],
+        "primary_auth": "bearer_token"
+      }
+    },
+    "spotify": {
+      "RESTAPI": {
+        "sources": [
+          "custom"
+        ],
+        "operation_count": 88,
+        "popularity_rank": 999,
+        "auth_types": [
+          "oauth2"
+        ],
+        "primary_auth": "oauth2"
+      }
     },
     "discord": {
-      "operation_count": 223,
-      "popularity_rank": 2,
-      "auth_types": [
-        "api_key",
-        "oauth2"
-      ],
-      "primary_auth": "api_key"
+      "discord": {
+        "sources": [
+          "github"
+        ],
+        "operation_count": 223,
+        "popularity_rank": 2,
+        "auth_types": [
+          "api_key",
+          "oauth2"
+        ],
+        "primary_auth": "api_key"
+      }
     },
     "pokeapi": {
-      "operation_count": 97,
-      "popularity_rank": 3,
-      "auth_types": [
-        "basic_auth",
-        "api_key"
-      ],
-      "primary_auth": "basic_auth"
+      "pokeapi": {
+        "sources": [
+          "github"
+        ],
+        "operation_count": 97,
+        "popularity_rank": 3,
+        "auth_types": [
+          "basic_auth",
+          "api_key"
+        ],
+        "primary_auth": "basic_auth"
+      }
     },
     "stripe": {
-      "operation_count": 570,
-      "popularity_rank": 1,
-      "auth_types": [
-        "basic_auth",
-        "bearer_token"
-      ],
-      "primary_auth": "basic_auth"
+      "stripe": {
+        "sources": [
+          "github"
+        ],
+        "operation_count": 570,
+        "popularity_rank": 1,
+        "auth_types": [
+          "basic_auth",
+          "bearer_token"
+        ],
+        "primary_auth": "basic_auth"
+      }
     }
   }
 }

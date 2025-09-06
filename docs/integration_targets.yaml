@@ -1,0 +1,68 @@
+info:
+  title: Integration Test Targets Status
+  description: This file is an auto-generated report on the status of integration
+    tests. It uses a 5-point sampling method to select a representative subset of
+    operations. Calls that are successfully sent and receive an expected error (e.g.,
+    4xx) are listed under http_validated.
+tests:
+  discord/discord: !!python/object/apply:collections.defaultdict
+    args:
+    - &id001 !!python/name:builtins.list ''
+    dictitems:
+      http_validated:
+      - 'applications_get_activity_instance (401: client_error)'
+      - 'get_guild_widget_settings (401: client_error)'
+      - 'list_guild_channels (401: client_error)'
+      - 'upload_application_attachment (401: client_error)'
+      failed:
+      - 'execute_slack_compatible_webhook (N/A: client_error)'
+      passed:
+      - create_message
+      - get_channel
+      - list_messages
+      - get_message
+  github/github: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      http_validated:
+      - 'actions/add-custom-labels-to-self-hosted-runner-for-org (404: client_error)'
+      - 'classroom/get-a-classroom (401: client_error)'
+      - 'migrations/start-for-org (401: client_error)'
+      - 'repos/get-commit (404: client_error)'
+      - 'users/list-ssh-signing-keys-for-user (404: client_error)'
+      passed:
+      - users/get-by-username
+  pokeapi/pokeapi: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      passed:
+      - api_v2_pokemon_retrieve
+      - api_v2_pokemon_retrieve
+      - api_v2_ability_list
+      - api_v2_evolution_trigger_list
+      - api_v2_machine_list
+      - api_v2_pokemon_color_list
+      http_validated:
+      - 'api_v2_version_retrieve (404: client_error)'
+  spotify/RESTAPI: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      http_validated:
+      - 'add-to-queue (401: client_error)'
+      - 'get-a-shows-episodes (401: client_error)'
+      - 'get-featured-playlists (401: client_error)'
+      - 'get-recommendations (401: client_error)'
+      - 'skip-users-playback-to-previous-track (401: client_error)'
+  stripe/stripe: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      http_validated:
+      - 'GetAccount (401: client_error)'
+      - 'GetIssuingTokensToken (401: client_error)'
+      - 'PostAccountsAccountPersonsPerson (401: client_error)'
+      - 'PostPaymentMethodsPaymentMethodDetach (401: client_error)'
+      - 'PostWebhookEndpointsWebhookEndpoint (401: client_error)'

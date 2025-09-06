@@ -12,7 +12,13 @@ def test_process_single_service_failure(tmp_path: Path):
     spec_path = service_data_dir / f"{service_name}.openapi.json.zst"
     spec_path.write_text("corrupted data")
 
-    result = pipeline.process_single_service(service_name, "http://localhost/corrupted.json")
+    service_info = {
+        "provider": "corrupted_service",
+        "api": "corrupted_service",
+        "source": "custom",
+        "url": "http://localhost/corrupted.json"
+    }
+    result = pipeline.process_single_service(service_info)
     assert result["status"] == "failure"
 
 

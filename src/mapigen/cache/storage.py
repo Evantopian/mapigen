@@ -10,7 +10,7 @@ import msgspec
 import zstandard as zstd
 
 from ..models import ServiceData
-from ..utils.path_utils import get_legacy_service_path
+from ..utils.path_utils import get_service_data_path
 
 
 def _load_zstd_metadata(zst_path: Path) -> ServiceData:
@@ -21,23 +21,23 @@ def _load_zstd_metadata(zst_path: Path) -> ServiceData:
     return msgspec.json.decode(decompressed, type=ServiceData)
 
 
-def load_service_from_disk(service_name: str) -> ServiceData:
+def load_service_from_disk(provider: str, api: str, source: str) -> ServiceData:
     """Loads the metadata for a single service, checking for uncompressed or compressed files."""
-    service_dir = get_legacy_service_path(service_name)
+    service_dir = get_service_data_path(provider, api, source)
 
-    uncompressed_path = service_dir / f"{service_name}.utilize.json"
-    compressed_path = service_dir / f"{service_name}.utilize.json.zst"
+    uncompressed_path = service_dir / f"{api}.utilize.json"
+    compressed_path = service_dir / f"{api}.utilize.json.zst"
 
     if uncompressed_path.exists():
-        logging.info(f"Loading uncompressed service data for '{service_name}' from disk.")
+        logging.info(f"Loading uncompressed service data for '{provider}/{api}/{source}' from disk.")
         return msgspec.json.decode(uncompressed_path.read_bytes(), type=ServiceData)
     
     if compressed_path.exists():
-        logging.info(f"Loading compressed service data for '{service_name}' from disk.")
+        logging.info(f"Loading compressed service data for '{provider}/{api}/{source}' from disk.")
         return _load_zstd_metadata(compressed_path)
 
     raise FileNotFoundError(
-        f"Service data for '{service_name}' not found. Please ensure data is populated."
+        f"Service data for '{provider}/{api}/{source}' not found. Please ensure data is populated."
     )
 
 class PinnedLRUCache:

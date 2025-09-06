@@ -1,4 +1,4 @@
-.PHONY: help lint test test-populate populate populate-force populate-debug validate clean clean-openapi show-format show-data
+.PHONY: help lint test test-report test-populate populate populate-force populate-debug validate clean clean-openapi show-format show-data
 
 
 # Variables
@@ -24,7 +24,12 @@ test: ## Run pytest. Usage: make test t=tests/path/to/test.py
 			pytest -s $(t); \
 	fi
 
+test-report: ## Run all tests and generate the integration_targets.yaml report
+	@echo "Running tests and generating report..."
+	@pytest
+
 test-populate: ## Run integration tests after a fresh data population
+
 	@echo "Populating data..."
 	@$(TOOLS).populate_data --force-reprocess && \
 		echo "Waiting for filesystem..." && sleep 1 && \
@@ -59,6 +64,10 @@ deep-validate: ## Run deep validation on populated data (slow). Usage: make deep
 
 validate-all: validate deep-validate ## Run all validation checks
 	@echo "All validation checks complete."
+
+generate-tests: ## Generate new integration tests for services without one
+	@echo "🐍 Generating new integration tests..."
+	@$(PYTHON) utils/generate_integration_tests.py
 
 inspector: ## Run inspector utility
 	@$(PYTHON) utils/inspector.py $(filter-out $@,$(MAKECMDGOALS))
@@ -104,3 +113,8 @@ clean: ## Remove all generated data files (utilize and notice files)
 
 clean-openapi: ## Remove only OpenAPI artifacts
 	find src/mapigen/data -type f -name "*.openapi.*" -delete
+
+clean-tests: ## Remove auto-generated integration test files
+	@echo "🧹 Cleaning generated test files..."
+	@find tests/integration -type f -name "*_generated.py" -delete
+	@echo "Done."

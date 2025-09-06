@@ -4,10 +4,10 @@
     {
       "root": "tests",
       "extraPaths": ["src"],
-      "reportUnknownMemberType": "none",
-      "reportUnknownVariableType": "none",
-      "reportUnknownArgumentType": "none",
-      "reportAttributeAccessIssue": "none"
+      "reportUnknownMemberType": "warning",
+      "reportUnknownVariableType": "warning",
+      "reportUnknownArgumentType": "warning",
+      "reportAttributeAccessIssue": "warning"
     }
   ]
 }

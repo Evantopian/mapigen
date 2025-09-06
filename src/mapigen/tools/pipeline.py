@@ -11,7 +11,7 @@ from mapigen.metadata.converter import normalize_spec
 from mapigen.metadata.extractor import extract_operations_and_components, save_metadata
 from mapigen.tools.utils import extract_auth_info
 from mapigen.utils.memory_manager import trigger_gc_if_needed
-from mapigen.utils.path_utils import get_legacy_service_path
+from mapigen.utils.path_utils import get_service_data_path
 
 # Define paths relative to this module
 FORMAT_VERSION = 3
@@ -22,36 +22,42 @@ def batcher(iterable: Iterable, batch_size: int) -> Iterator[list]:
     while chunk := list(islice(iterator, batch_size)):
         yield chunk
 
-def process_single_service(service_name: str, url: str) -> dict[str, Any]:
+def process_single_service(service_info: dict[str, Any]) -> dict[str, Any]:
     """Worker function to process a single service, returning metrics."""
-    service_data_dir = get_legacy_service_path(service_name)
-    metrics: Dict[str, Any] = {"service_name": service_name, "url": url}
+    provider = service_info["provider"]
+    api = service_info["api"]
+    source = service_info["source"]
+    url = service_info["url"]
+
+    metrics: Dict[str, Any] = {"provider": provider, "api": api, "source": source, "url": url}
     try:
+        service_data_dir = get_service_data_path(provider, api, source)
         t_parse_start = time.perf_counter()
-        compressed_spec_path = service_data_dir / f"{service_name}.openapi.json.zst"
+        compressed_spec_path = service_data_dir / f"{api}.openapi.json.zst"
         compressed_content = compressed_spec_path.read_bytes()
         raw_spec = dict(normalize_spec(compressed_content=compressed_content))
         metrics["parse_duration"] = time.perf_counter() - t_parse_start
 
         t_extract_start = time.perf_counter()
-        processed_data = extract_operations_and_components(service_name, raw_spec)
+        processed_data = extract_operations_and_components(api, raw_spec)
         metrics["extract_duration"] = time.perf_counter() - t_extract_start
 
         processed_data["servers"] = raw_spec.get("servers", [])
         processed_data["format_version"] = FORMAT_VERSION
-        processed_data["service_name"] = service_name
+        processed_data["service_name"] = api
         
-        utilize_path = save_metadata(service_name, processed_data, service_data_dir)
+        utilize_path = save_metadata(api, processed_data, service_data_dir)
 
         metrics.update({
             "status": "success",
             "auth_info": extract_auth_info(raw_spec),
             "processed_op_count": len(processed_data["operations"]),
+            "reusable_param_count": len(processed_data.get("components", {}).get("parameters", {})),
             "utilize_path": utilize_path
             })
         return metrics
     except Exception as e:
-        logging.error(f"Failed to process service {service_name}: {e}")
+        logging.error(f"Failed to process service {api} from {source}: {e}")
         metrics["status"] = "failure"
         return metrics
 
@@ -97,7 +103,7 @@ def run_processing_pipeline(services_to_process: List[Dict[str, Any]], args: Any
     processing_results: List[Dict[str, Any]] = []
     for batch in tqdm(processing_batches, desc="Processing Batches"):
         with ProcessPoolExecutor(max_workers=args.process_workers) as executor:
-            futures = {executor.submit(process_single_service, service["name"], service["url"]): service["name"] for service in batch}
+            futures = {executor.submit(process_single_service, service): service["api"] for service in batch}
             for future in as_completed(futures):
                 result = future.result()
                 processing_results.append(result)

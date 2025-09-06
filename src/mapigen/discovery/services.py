@@ -1,10 +1,9 @@
-"""Service discovery methods for reading from the service registry."""
 from __future__ import annotations
 import msgspec
 from functools import lru_cache
 from pathlib import Path
 
-from ..models import ServiceInfo, ServiceRegistry
+from ..models import ServiceRegistry, ApiInfo
 
 # Define path to the service registry
 REGISTRY_PATH = Path(__file__).resolve().parent.parent / "services.json"
@@ -19,30 +18,32 @@ def _load_registry() -> ServiceRegistry:
         )
     return msgspec.json.decode(REGISTRY_PATH.read_bytes(), type=ServiceRegistry)
 
-def list_services() -> list[str]:
-    """Returns a list of all available service keys."""
+def list_providers() -> list[str]:
+    """Returns a list of all available provider keys."""
     registry = _load_registry()
-    return list(registry.services.keys())
+    return list(registry.providers.keys())
 
-def service_exists(service: str) -> bool:
-    """Checks if a given service exists in the registry."""
+def provider_exists(provider: str) -> bool:
+    """Checks if a given provider exists in the registry."""
     registry = _load_registry()
-    return service in registry.services
+    return provider in registry.providers
 
-def get_service_info(service: str) -> ServiceInfo:
-    """Returns the entire metadata dictionary for a single service."""
+def list_apis(provider: str) -> list[str]:
+    """Returns a list of all available API keys for a given provider."""
     registry = _load_registry()
-    service_info = registry.services.get(service)
-    if service_info is None:
-        raise ValueError(f"Service '{service}' not found in registry.")
-    return service_info
+    if provider in registry.providers:
+        return list(registry.providers[provider].keys())
+    return []
 
-def get_auth_types(service: str) -> list[str]:
-    """Returns the list of supported auth_types for a service."""
-    info = get_service_info(service)
-    return info.auth_types
+def api_exists(provider: str, api: str) -> bool:
+    """Checks if an API exists for a given provider."""
+    registry = _load_registry()
+    return provider in registry.providers and api in registry.providers[provider]
 
-def get_primary_auth(service: str) -> str:
-    """Returns the primary_auth method for a service."""
-    info = get_service_info(service)
-    return info.primary_auth
+def get_api_info(provider: str, api: str) -> ApiInfo:
+    """Returns the entire metadata object for a single API."""
+    registry = _load_registry()
+    api_info = registry.providers.get(provider, {}).get(api)
+    if api_info is None:
+        raise ValueError(f"API '{api}' not found for provider '{provider}'.")
+    return api_info

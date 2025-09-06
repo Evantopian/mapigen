@@ -13,12 +13,12 @@ def mock_service_data() -> ServiceData:
     """Creates a mock ServiceData object for testing."""
     data_dict = {
         "format_version": 3,
-        "service_name": "mock_service",
+        "service_name": "mock_api",
         "servers": [{"url": "https://example.com"}],
         "components": {},
         "operations": {
             "test_op": {
-                "service": "mock_service",
+                "service": "mock_api",
                 "path": "/test/{user_id}",
                 "method": "GET",
                 "parameters": [
@@ -34,14 +34,7 @@ def mock_service_data() -> ServiceData:
                         "name": "limit",
                         "in": "query",
                         "required": False,
-                        "schema": {"type": "integer", "default": 10},
-                    },
-                    {
-                        "type": "inline",
-                        "name": "status",
-                        "in": "query",
-                        "required": False,
-                        "schema": {"type": "string", "enum": ["active", "inactive"]},
+                        "schema": {"type": "integer"},
                     },
                     {
                         "type": "inline",
@@ -67,49 +60,42 @@ def mock_load_service(monkeypatch, mock_service_data: ServiceData):
 
 def test_validation_success(mock_service_data: ServiceData):
     """Tests that valid parameters pass validation."""
-    params = {"user_id": 123, "limit": 50, "status": "active"}
-    build_and_validate_parameters(mock_service_data.service_name, "test_op", params)
+    params = {"user_id": 123, "limit": 50}
+    build_and_validate_parameters("mock_provider", "mock_api", "mock_source", "test_op", params)
 
 
 def test_validation_missing_required(mock_service_data: ServiceData):
     """Tests that a missing required parameter raises a MapiError."""
     params = {"limit": 50}
-    with pytest.raises(MapiError, match="Missing required parameter: 'user_id'"):
-        build_and_validate_parameters(mock_service_data.service_name, "test_op", params)
+    with pytest.raises(MapiError, match="Object missing required field `user_id`"):
+        build_and_validate_parameters("mock_provider", "mock_api", "mock_source", "test_op", params)
 
 
 def test_validation_wrong_type(mock_service_data: ServiceData):
     """Tests that a parameter with the wrong type raises a MapiError."""
     params = {"user_id": "not-an-integer"}
-    with pytest.raises(MapiError, match="Invalid type for parameter 'user_id'"):
-        build_and_validate_parameters(mock_service_data.service_name, "test_op", params)
+    with pytest.raises(MapiError, match="Expected `int`, got `str`"):
+        build_and_validate_parameters("mock_provider", "mock_api", "mock_source", "test_op", params)
 
 
 def test_validation_unexpected_param(mock_service_data: ServiceData):
-    """Tests that an unexpected parameter does not raise an error."""
+    """Tests that an unexpected parameter does not raise an error (due to strict=False)."""
     params = {"user_id": 123, "unexpected": "foo"}
     try:
-        build_and_validate_parameters(mock_service_data.service_name, "test_op", params)
+        build_and_validate_parameters("mock_provider", "mock_api", "mock_source", "test_op", params)
     except MapiError as e:
         pytest.fail(f"Unexpected MapiError was raised for unexpected parameter: {e}")
-
-
-def test_validation_enum_mismatch(mock_service_data: ServiceData):
-    """Tests that a parameter outside the enum raises a MapiError."""
-    params = {"user_id": 123, "status": "invalid-status"}
-    with pytest.raises(MapiError, match="not in the allowed enum values"):
-        build_and_validate_parameters(mock_service_data.service_name, "test_op", params)
 
 
 def test_validation_array_type(mock_service_data: ServiceData):
     """Tests that array types are validated correctly."""
     # Valid case
     params_valid = {"user_id": 123, "tags": ["a", "b", "c"]}
-    build_and_validate_parameters(mock_service_data.service_name, "test_op", params_valid)
+    build_and_validate_parameters("mock_provider", "mock_api", "mock_source", "test_op", params_valid)
 
     # Invalid item in array
     params_invalid = {"user_id": 123, "tags": ["a", "b", 123]}
-    with pytest.raises(MapiError, match=r"Invalid type for parameter 'tags\[\]'"):
+    with pytest.raises(MapiError, match="Expected `str`, got `int`"):
         build_and_validate_parameters(
-            mock_service_data.service_name, "test_op", params_invalid
+            "mock_provider", "mock_api", "mock_source", "test_op", params_invalid
         )

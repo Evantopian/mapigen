@@ -15,7 +15,7 @@ from ..discovery import DiscoveryClient
 from ..http.transport import HttpTransport
 import msgspec
 from ..models import ServiceData, Parameter, ParameterRef
-from ..proxy import ServiceProxy
+from ..proxy import ProviderProxy
 from ..cache.storage import PinnedLRUCache, load_service_from_disk
 from ..validation.schemas import build_and_validate_parameters
 
@@ -55,7 +55,7 @@ class Mapi:
         self.default_timeout = default_timeout
         self.http_client = HttpTransport(**transport_kwargs)
         self.discovery = DiscoveryClient()
-        self._services = self.discovery.list_services()
+        self._providers = self.discovery.list_providers()
         self.validate_on_execute = validate_on_execute
 
         # Configure logging
@@ -80,22 +80,22 @@ class Mapi:
 
     def __getattribute__(self, name: str) -> Any:
         try:
-            if name in object.__getattribute__(self, "_services"):
-                return ServiceProxy(self, name)
+            if name in object.__getattribute__(self, "_providers"):
+                return ProviderProxy(self, name)
         except AttributeError:
             pass
         return object.__getattribute__(self, name)
 
-    def _load_service_data(self, service_name: str) -> ServiceData:
+    def _load_service_data(self, cache_key: str) -> ServiceData:
         try:
-            # The data is now decoded into a ServiceData object with version validation
-            return load_service_from_disk(service_name)
+            provider, api, source = cache_key.split(":")
+            return load_service_from_disk(provider, api, source)
         except FileNotFoundError as e:
-            raise MapiError(f"Service '{service_name}' not found", service=service_name, error_type="sdk", original_exception=e) from e
-        except msgspec.ValidationError as e:
+            raise MapiError(f"Service data for '{cache_key}' not found", service=cache_key, error_type="sdk", original_exception=e) from e
+        except (msgspec.ValidationError, ValueError) as e:
             raise MapiError(
-                f"Service data for '{service_name}' is invalid. "
-                f"Please regenerate the service data. Error: {e}", service=service_name, error_type="sdk", original_exception=e
+                f"Service data for '{cache_key}' is invalid. "
+                f"Please regenerate the service data. Error: {e}", service=cache_key, error_type="sdk", original_exception=e
             ) from e
 
     def clear_cache(self) -> None:
@@ -130,33 +130,33 @@ class Mapi:
             error_type=error_type, error_category=error_category
         )
 
-    def _prepare_request_config(self, service: str, operation: str, 
+    def _prepare_request_config(self, provider: str, api: str, source: str, operation: str, 
                                request_options: Optional[RequestOptions] = None, **kwargs: Any) -> RequestConfig:
+        service_name = f"{provider}/{api}/{source}"
         if self.validate_on_execute:
             try:
-                build_and_validate_parameters(service, operation, kwargs)
+                build_and_validate_parameters(provider, api, source, operation, kwargs)
             except MapiError as e:
-                log.error("validation_failed", service=service, operation=operation, error=str(e))
+                log.error("validation_failed", service=service_name, operation=operation, error=str(e))
                 raise e
 
-        service_data = self._service_cache.get(service)
+        cache_key = f"{provider}:{api}:{source}"
+        service_data = self._service_cache.get(cache_key)
         op_details = service_data.operations.get(operation)
         if not op_details:
-            raise MapiError(f"Operation '{operation}' not found", service=service, operation=operation, error_type="sdk")
+            raise MapiError(f"Operation '{operation}' not found", service=service_name, operation=operation, error_type="sdk")
 
         base_url = self.base_url or (service_data.servers[0].url if service_data.servers else None)
         if not base_url:
-            raise MapiError(f"No server URL found for service '{service}'", service=service, operation=operation, error_type="sdk")
+            raise MapiError(f"No server URL found for service '{service_name}'", service=service_name, operation=operation, error_type="sdk")
 
         path_params, query_params, body_params, headers = {}, {}, {}, {}
         
         for param_union in op_details.parameters:
             param_details: Parameter
             if isinstance(param_union, ParameterRef):
-                # Resolve the reference from the components
                 param_details = service_data.components.parameters[param_union.component_name]
             else:
-                # It's an inline parameter
                 param_details = param_union
 
             if param_details.name in kwargs:
@@ -165,16 +165,13 @@ class Mapi:
                     path_params[param_details.name] = value
                 elif param_details.in_ == "query":
                     query_params[param_details.name] = value
-                # Note: 'body' params are handled differently in OpenAPI 3 vs 2.
-                # This implementation assumes a simplified model where named body params are collected.
-                # A more robust implementation would handle requestBody schemas.
                 elif param_details.in_ == "body":
                     body_params[param_details.name] = value
 
         try:
             final_path = op_details.path.format(**path_params)
         except KeyError as e:
-            raise MapiError(f"Missing required path parameter: {e}", service=service, operation=operation, error_type="validation", original_exception=e) from e
+            raise MapiError(f"Missing required path parameter: {e}", service=service_name, operation=operation, error_type="validation", original_exception=e) from e
             
         full_url = f"{base_url.rstrip('/')}{final_path}"
         options = request_options or RequestOptions(timeout=self.default_timeout)
@@ -182,11 +179,12 @@ class Mapi:
         return RequestConfig(method=op_details.method, url=full_url, params=query_params,
                            headers=headers, json_body=body_params, options=options)
 
-    def execute(self, service: str, operation: str, **kwargs: Any) -> Dict[str, Union[Dict[str, Any], ResponseMetadata, None]]:
+    def execute(self, provider: str, api: str, source: str, operation: str, **kwargs: Any) -> Dict[str, Union[Dict[str, Any], ResponseMetadata, None]]:
         start_time = time.time()
         response: Optional[Response] = None
+        service_name = f"{provider}/{api}/{source}"
         try:
-            config = self._prepare_request_config(service, operation, RequestOptions(), **kwargs)
+            config = self._prepare_request_config(provider, api, source, operation, RequestOptions(), **kwargs)
             request_kwargs: Dict[str, Any] = {
                 "method": config.method, "url": config.url, "params": config.params,
                 "headers": config.headers, "timeout": config.options.timeout, "auth": self.auth,
@@ -196,17 +194,18 @@ class Mapi:
 
             response = self.http_client.request(**request_kwargs)
             result = response.json()
-            return {"data": result, "metadata": self._create_metadata(service, operation, start_time, response)}
+            return {"data": result, "metadata": self._create_metadata(service_name, operation, start_time, response)}
         except Exception as e:
             response = getattr(e, 'response', None)
-            log.error("request_failed", service=service, operation=operation, error=str(e), exc_info=True)
-            return {"data": None, "metadata": self._create_metadata(service, operation, start_time, response, e)}
+            log.error("request_failed", service=service_name, operation=operation, error=str(e), exc_info=True)
+            return {"data": None, "metadata": self._create_metadata(service_name, operation, start_time, response, e)}
 
-    async def aexecute(self, service: str, operation: str, **kwargs: Any) -> Dict[str, Union[Dict[str, Any], ResponseMetadata, None]]:
+    async def aexecute(self, provider: str, api: str, source: str, operation: str, **kwargs: Any) -> Dict[str, Union[Dict[str, Any], ResponseMetadata, None]]:
         start_time = time.time()
         response: Optional[Response] = None
+        service_name = f"{provider}/{api}/{source}"
         try:
-            config = self._prepare_request_config(service, operation, RequestOptions(), **kwargs)
+            config = self._prepare_request_config(provider, api, source, operation, RequestOptions(), **kwargs)
             request_kwargs: Dict[str, Any] = {
                 "method": config.method, "url": config.url, "params": config.params,
                 "headers": config.headers, "timeout": config.options.timeout, "auth": self.auth,
@@ -216,8 +215,8 @@ class Mapi:
 
             response = await self.http_client.arequest(**request_kwargs)
             result = response.json()
-            return {"data": result, "metadata": self._create_metadata(service, operation, start_time, response)}
+            return {"data": result, "metadata": self._create_metadata(service_name, operation, start_time, response)}
         except Exception as e:
             response = getattr(e, 'response', None)
-            log.error("request_failed", service=service, operation=operation, error=str(e), exc_info=True)
-            return {"data": None, "metadata": self._create_metadata(service, operation, start_time, response, e)}
+            log.error("request_failed", service=service_name, operation=operation, error=str(e), exc_info=True)
+            return {"data": None, "metadata": self._create_metadata(service_name, operation, start_time, response, e)}

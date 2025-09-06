@@ -2,7 +2,7 @@ import pytest
 from dotenv import load_dotenv
 
 from mapigen import Mapi, MapiError
-from ..helpers import report
+from ..helpers import result_reporter
 from ..reporting import run_test_operation, REQUIRED_CREDS
 
 # Load environment variables from .env file
@@ -21,7 +21,7 @@ def client() -> Mapi:
 def test_pokeapi_integration(client: Mapi):
     """Runs a series of integration tests for the PokeAPI service."""
     if SERVICE_NAME not in REQUIRED_CREDS:
-        report.add_skipped(SERVICE_NAME, REQUIRED_CREDS[SERVICE_NAME])
+        result_reporter.add_skipped(f"{SERVICE_NAME}/{SERVICE_NAME}", REQUIRED_CREDS[SERVICE_NAME])
         pytest.skip(f"Skipping {SERVICE_NAME} tests; service not configured in REQUIRED_CREDS.")
 
     operations_checked = []
@@ -36,9 +36,9 @@ def test_pokeapi_integration(client: Mapi):
 
         run_test_operation(
             client=client,
-            service_name=SERVICE_NAME,
+            provider_name=SERVICE_NAME,
+            api_name=SERVICE_NAME,
             op_name=op_name,
-            report=report,
             operations_checked=operations_checked,
             assertion_callback=assert_ditto_data,
             id=pokemon_id_ditto,
@@ -53,15 +53,15 @@ def test_pokeapi_integration(client: Mapi):
 
         run_test_operation(
             client=client,
-            service_name=SERVICE_NAME,
+            provider_name=SERVICE_NAME,
+            api_name=SERVICE_NAME,
             op_name=op_name,
-            report=report,
             operations_checked=operations_checked,
             assertion_callback=assert_pikachu_data,
             id=pokemon_id_pikachu,
         )
 
     except MapiError as e:
-        print(f"--- CAUGHT EXPECTED ERROR for {SERVICE_NAME} ---")
+        print(f"--- CAUGHT UNEXPECTED ERROR for {SERVICE_NAME} ---")
         print(e)
-        report.add_failed(SERVICE_NAME, op_name, e)
+        result_reporter.add_failed(f"{SERVICE_NAME}/{SERVICE_NAME}", op_name, e)

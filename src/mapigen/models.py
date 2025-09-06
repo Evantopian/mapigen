@@ -72,17 +72,25 @@ class ServiceData(BaseStruct, frozen=True):
     components: Components
     operations: Dict[str, Operation]
 
-# --- Registry Model ---
+# --- Registry Models ---
 
-class ServiceInfo(BaseStruct, frozen=True):
-    """Service metadata for registry discovery (services.json)."""
-    operation_count: PositiveInt
-    popularity_rank: PositiveInt
-    auth_types: List[str] = msgspec.field(default_factory=list)
-    primary_auth: str = "none"
+class MetadataFile(msgspec.Struct, frozen=True):
+    """Represents the structure of a metadata.yml file."""
+    operation_count: int
+    auth_types: List[str]
+    primary_auth: str
+    popularity_rank: int
 
-class ServiceRegistry(BaseStruct, frozen=True):
-    """Complete service registry index."""
+class ApiInfo(msgspec.Struct, frozen=True):
+    """Metadata for a single API, containing its available sources and other details."""
+    sources: List[str]
+    operation_count: int
+    popularity_rank: int
+    auth_types: List[str]
+    primary_auth: str
+
+class ServiceRegistry(msgspec.Struct, frozen=True):
+    """The root object of the new services.json registry."""
     version: NonEmptyStr
     generated_at: str  # ISO 8601 timestamp
-    services: Dict[str, ServiceInfo]
+    providers: Dict[str, Dict[str, ApiInfo]]

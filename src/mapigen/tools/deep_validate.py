@@ -12,7 +12,8 @@ from openapi_spec_validator import validate_spec
 from mapigen.models import Operation, Parameter, ParameterRef
 from mapigen.tools.utils import load_spec, get_params_from_operation
 from mapigen.cache.storage import load_service_from_disk
-from mapigen.utils.path_utils import get_data_dir
+from mapigen.discovery import DiscoveryClient
+from mapigen.utils.path_utils import get_service_data_path
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -40,31 +41,46 @@ def generate_report(results: List[Dict[str, Any]], total_duration: float):
 def main():
     """Main deep validation function."""
     parser = argparse.ArgumentParser(description="Deep validate service data.")
-    parser.add_argument("service", nargs='?', help="Optional: The name of the service to validate.")
+    parser.add_argument("provider", nargs='?', help="Optional: The name of the provider to validate.")
+    parser.add_argument("api", nargs='?', help="Optional: The name of the api to validate.")
     args = parser.parse_args()
 
     logging.info("Starting deep validation...")
     overall_start_time = time.perf_counter()
     
-    data_root = get_data_dir()
-    
-    if args.service:
-        service_dirs = [data_root / args.service]
-        if not service_dirs[0].exists():
-            logging.error(f"Service '{args.service}' not found.")
-            sys.exit(1)
+    client = DiscoveryClient()
+    try:
+        all_providers = client.list_providers()
+    except FileNotFoundError:
+        logging.warning("No service registry found. Skipping validation.")
+        return
+
+    identifiers_to_check = []
+    if args.provider and args.api:
+        api_info = client.get_api_info(args.provider, args.api)
+        for source in api_info.sources:
+            identifiers_to_check.append((args.provider, args.api, source))
+    elif args.provider:
+        for api in client.list_apis(args.provider):
+            api_info = client.get_api_info(args.provider, api)
+            for source in api_info.sources:
+                identifiers_to_check.append((args.provider, api, source))
     else:
-        service_dirs = [d for d in data_root.iterdir() if d.is_dir()]
-    
-    if not service_dirs:
+        for provider in all_providers:
+            for api in client.list_apis(provider):
+                api_info = client.get_api_info(provider, api)
+                for source in api_info.sources:
+                    identifiers_to_check.append((provider, api, source))
+
+    if not identifiers_to_check:
         logging.warning("No service data found to validate.")
         return
 
     overall_status = 0
     results: List[Dict[str, Any]] = []
 
-    for service_dir in tqdm(service_dirs, desc="Deep Validating Services"):
-        service_name = service_dir.name
+    for provider, api, source in tqdm(identifiers_to_check, desc="Deep Validating Services"):
+        service_name = f"{provider}/{api}/{source}"
         service_start_time = time.perf_counter()
         metrics: Dict[str, Any] = {
             "service_name": service_name,
@@ -74,16 +90,17 @@ def main():
         }
 
         try:
+            service_data_dir = get_service_data_path(provider, api, source)
             # 1. Raw Spec Validation
             t_spec_val_start = time.perf_counter()
-            raw_spec_path = next(service_dir.glob(f"{service_name}.openapi.*", ))
+            raw_spec_path = next(service_data_dir.glob(f"{api}.openapi.*", ))
             raw_spec: dict[str, Any] = load_spec(raw_spec_path)
             validate_spec(cast(Mapping[Any, Any], raw_spec))
             metrics["spec_validation_duration"] = time.perf_counter() - t_spec_val_start
 
             # 2. Deep Integrity Checks
             t_deep_check_start = time.perf_counter()
-            utilize_data = load_service_from_disk(service_name)
+            utilize_data = load_service_from_disk(provider, api, source)
             reusable_components: dict[str, Parameter] = utilize_data.components.parameters
             operations: dict[str, Operation] = utilize_data.operations
             total_errors = 0

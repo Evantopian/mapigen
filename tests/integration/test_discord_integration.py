@@ -3,7 +3,7 @@ import pytest
 from dotenv import load_dotenv
 
 from mapigen import Mapi, Auth, MapiError
-from ..helpers import report
+from ..helpers import result_reporter
 from ..reporting import run_test_operation, REQUIRED_CREDS
 
 # Load environment variables from .env file
@@ -28,7 +28,7 @@ def client() -> Mapi:
 def test_discord_integration(client: Mapi):
     """Runs a series of integration tests for the Discord service."""
     if not all([TOKEN, CHANNEL_ID]):
-        report.add_skipped(SERVICE_NAME, REQUIRED_CREDS[SERVICE_NAME])
+        result_reporter.add_skipped(f"{SERVICE_NAME}/{SERVICE_NAME}", REQUIRED_CREDS[SERVICE_NAME])
         pytest.skip(f"Skipping {SERVICE_NAME} tests; missing required credentials.")
 
     operations_checked = []
@@ -37,18 +37,15 @@ def test_discord_integration(client: Mapi):
         # --- Test 1: Create Message ---
         op_name = "create_message"
         content = "Mapi Client test..."
-        created_message_id = None # Declare variable to store the created message ID
 
         def assert_create_message(data):
-            nonlocal created_message_id # Use nonlocal to modify the outer variable
-            created_message_id = data.get("id")
             assert data.get("content") == content
 
         run_test_operation(
             client=client,
-            service_name=SERVICE_NAME,
+            provider_name=SERVICE_NAME,
+            api_name=SERVICE_NAME,
             op_name=op_name,
-            report=report,
             operations_checked=operations_checked,
             assertion_callback=assert_create_message,
             channel_id=CHANNEL_ID,
@@ -62,9 +59,9 @@ def test_discord_integration(client: Mapi):
 
         run_test_operation(
             client=client,
-            service_name=SERVICE_NAME,
+            provider_name=SERVICE_NAME,
+            api_name=SERVICE_NAME,
             op_name=op_name,
-            report=report,
             operations_checked=operations_checked,
             assertion_callback=assert_get_channel,
             channel_id=CHANNEL_ID,
@@ -78,9 +75,9 @@ def test_discord_integration(client: Mapi):
 
         run_test_operation(
             client=client,
-            service_name=SERVICE_NAME,
+            provider_name=SERVICE_NAME,
+            api_name=SERVICE_NAME,
             op_name=op_name,
-            report=report,
             operations_checked=operations_checked,
             assertion_callback=assert_list_messages,
             channel_id=CHANNEL_ID,
@@ -94,9 +91,9 @@ def test_discord_integration(client: Mapi):
         
         run_test_operation(
             client=client,
-            service_name=SERVICE_NAME,
+            provider_name=SERVICE_NAME,
+            api_name=SERVICE_NAME,
             op_name=op_name,
-            report=report,
             operations_checked=operations_checked,
             assertion_callback=assert_get_messages,
             channel_id=CHANNEL_ID,
@@ -104,6 +101,6 @@ def test_discord_integration(client: Mapi):
         )
 
     except MapiError as e:
-        print(f"--- CAUGHT EXPECTED ERROR for {SERVICE_NAME} ---")
+        print(f"--- CAUGHT UNEXPECTED ERROR for {SERVICE_NAME} ---")
         print(e)
-        report.add_failed(SERVICE_NAME, op_name, e)
+        result_reporter.add_failed(f"{SERVICE_NAME}/{SERVICE_NAME}", op_name, e)

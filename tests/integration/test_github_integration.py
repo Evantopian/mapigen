@@ -3,7 +3,7 @@ import pytest
 from dotenv import load_dotenv
 
 from mapigen import Mapi, Auth, MapiError
-from ..helpers import report
+from ..helpers import result_reporter
 from ..reporting import run_test_operation, REQUIRED_CREDS
 
 # Load environment variables from .env file
@@ -25,7 +25,7 @@ def client() -> Mapi:
 def test_github_integration(client: Mapi):
     """Runs a series of integration tests for the GitHub service."""
     if not all([TOKEN, TEST_USER]):
-        report.add_skipped(SERVICE_NAME, REQUIRED_CREDS[SERVICE_NAME])
+        result_reporter.add_skipped(f"{SERVICE_NAME}/{SERVICE_NAME}", REQUIRED_CREDS[SERVICE_NAME])
         pytest.skip(f"Skipping {SERVICE_NAME} tests; missing required credentials.")
 
     operations_checked = []
@@ -38,15 +38,15 @@ def test_github_integration(client: Mapi):
 
         run_test_operation(
             client=client,
-            service_name=SERVICE_NAME,
+            provider_name=SERVICE_NAME,
+            api_name=SERVICE_NAME,
             op_name=op_name,
-            report=report,
             operations_checked=operations_checked,
             assertion_callback=assert_get_user,
             username=TEST_USER,
         )
 
     except MapiError as e:
-        print(f"--- CAUGHT EXPECTED ERROR for {SERVICE_NAME} ---")
+        print(f"--- CAUGHT UNEXPECTED ERROR for {SERVICE_NAME} ---")
         print(e)
-        report.add_failed(SERVICE_NAME, op_name, e)
+        result_reporter.add_failed(f"{SERVICE_NAME}/{SERVICE_NAME}", op_name, e)

@@ -4,10 +4,17 @@ import msgspec
 
 from mapigen.models import (
     ServiceData,
-    ServiceInfo,
+    ApiInfo,
     ServiceRegistry,
 )
+from .helpers import result_reporter
 
+@pytest.fixture(scope="session", autouse=True)
+def save_report_at_end(request):
+    """A session-level fixture to automatically save the report at the end."""
+    yield
+    # This code runs after the entire test session finishes
+    result_reporter.save()
 
 @pytest.fixture(scope="session")
 def service_registry_fixture() -> ServiceRegistry:
@@ -15,19 +22,25 @@ def service_registry_fixture() -> ServiceRegistry:
     return ServiceRegistry(
         version="1.0-test",
         generated_at="2025-01-01T00:00:00Z",
-        services={
-            "service_a": ServiceInfo(
-                operation_count=10,
-                popularity_rank=1,
-                auth_types=["bearer_token"],
-                primary_auth="bearer_token",
-            ),
-            "service_b": ServiceInfo(
-                operation_count=20,
-                popularity_rank=2,
-                auth_types=["basic_auth", "api_key"],
-                primary_auth="basic_auth",
-            ),
+        providers={
+            "provider_a": {
+                "service_a": ApiInfo(
+                    sources=["default"],
+                    operation_count=10,
+                    popularity_rank=1,
+                    auth_types=["bearer_token"],
+                    primary_auth="bearer_token",
+                )
+            },
+            "provider_b": {
+                "service_b": ApiInfo(
+                    sources=["default"],
+                    operation_count=20,
+                    popularity_rank=2,
+                    auth_types=["basic_auth", "api_key"],
+                    primary_auth="basic_auth",
+                )
+            },
         },
     )
 

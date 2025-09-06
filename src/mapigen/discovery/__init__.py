@@ -2,7 +2,7 @@
 from __future__ import annotations
 from typing import List, Optional
 
-from mapigen.models import ServiceInfo, Operation
+from mapigen.models import ApiInfo, Operation
 
 from . import services
 from . import operations
@@ -11,36 +11,52 @@ from . import operations
 class DiscoveryClient:
     """Provides methods for discovering available services and their details."""
 
-    # Service-level methods
+    # Provider-level methods
     @staticmethod
-    def list_services() -> list[str]:
-        return services.list_services()
+    def list_providers() -> list[str]:
+        return services.list_providers()
 
     @staticmethod
-    def service_exists(service: str) -> bool:
-        return services.service_exists(service)
+    def provider_exists(provider: str) -> bool:
+        return services.provider_exists(provider)
+
+    # API-level methods
+    @staticmethod
+    def list_apis(provider: str) -> list[str]:
+        return services.list_apis(provider)
 
     @staticmethod
-    def get_service_info(service: str) -> ServiceInfo:
-        return services.get_service_info(service)
+    def api_exists(provider: str, api: str) -> bool:
+        return services.api_exists(provider, api)
 
     @staticmethod
-    def get_auth_types(service: str) -> list[str]:
-        return services.get_auth_types(service)
-
-    @staticmethod
-    def get_primary_auth(service: str) -> str:
-        return services.get_primary_auth(service)
+    def get_api_info(provider: str, api: str) -> ApiInfo:
+        return services.get_api_info(provider, api)
 
     # Operation-level methods
     @staticmethod
-    def list_operations(service: str) -> List[str]:
-        return operations.list_operations(service)
+    def list_operations(provider: str, api: str, source: Optional[str] = None) -> List[str]:
+        if source is None:
+            api_info = services.get_api_info(provider, api)
+            if not api_info.sources:
+                raise ValueError(f"No sources found for API '{api}' of provider '{provider}'.")
+            source = api_info.sources[0]
+        return operations.list_operations(provider, api, source)
 
     @staticmethod
-    def operation_exists(service: str, operation: str) -> bool:
-        return operations.operation_exists(service, operation)
+    def operation_exists(provider: str, api: str, operation: str, source: Optional[str] = None) -> bool:
+        if source is None:
+            api_info = services.get_api_info(provider, api)
+            if not api_info.sources:
+                return False
+            source = api_info.sources[0]
+        return operations.operation_exists(provider, api, source, operation)
 
     @staticmethod
-    def get_operation(service: str, operation: str) -> Optional[Operation]:
-        return operations.get_operation(service, operation)
+    def get_operation(provider: str, api: str, operation: str, source: Optional[str] = None) -> Optional[Operation]:
+        if source is None:
+            api_info = services.get_api_info(provider, api)
+            if not api_info.sources:
+                return None
+            source = api_info.sources[0]
+        return operations.get_operation(provider, api, source, operation)
