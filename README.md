@@ -10,7 +10,7 @@
 [![API Ref-mapigen](https://img.shields.io/badge/API%20Reference-mapigen-blue?style=flat)](./docs/API_REFERENCE.md)
 </div>
 
-> Notes: Adding more registy entries, and dynamic fetching via through GitHub -> Working on auto-updates & 4xx tests for APIs.
+> Notes: Working on auto-updates, adding support for templated URLs for dynamic endpoint configuration.
 
 `mapigen` is a Python framework that transforms OpenAPI specifications into lightweight, normalized metadata, enabling efficient and dynamic API access.
 

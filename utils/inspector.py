@@ -3,7 +3,7 @@ import json
 from mapigen import Mapi
 from mapigen.cache.storage import load_service_from_disk
 import msgspec
-from mapigen.models import ParameterRef, Parameter
+from mapigen.models import ParameterRef
 from mapigen.utils.compression_utils import decompress_zstd
 from pathlib import Path
 

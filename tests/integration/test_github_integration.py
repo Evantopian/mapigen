@@ -40,7 +40,7 @@ def test_github_integration(client: Mapi):
         run_test_operation(
             client=client,
             provider_name=SERVICE_NAME,
-            api_name=SERVICE_NAME,
+            api_name="REST",
             op_name=op_name,
             operations_checked=operations_checked,
             assertion_callback=assert_get_user,

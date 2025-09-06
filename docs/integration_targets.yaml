@@ -35,6 +35,11 @@ tests:
       - 'upload_application_attachment (401: Unauthorized (expected if no auth provided))'
       failed:
       - 'execute_slack_compatible_webhook (None: client_error)'
+      passed:
+      - create_message
+      - get_channel
+      - list_messages
+      - get_message
   discord/discord-rest-api: !!python/object/apply:collections.defaultdict
     args:
     - *id001
@@ -45,15 +50,6 @@ tests:
       - 'getGuildsOnboarding (401: Unauthorized (expected if no auth provided))'
       - 'listGuildEmojis (401: Unauthorized (expected if no auth provided))'
       - 'triggerTypingIndicator (401: Unauthorized (expected if no auth provided))'
-  discord/discord: !!python/object/apply:collections.defaultdict
-    args:
-    - *id001
-    dictitems:
-      failed:
-      - 'create_message (None: test_framework_error)'
-      - 'get_channel (None: test_framework_error)'
-      - 'list_messages (None: test_framework_error)'
-      - 'get_message (None: test_framework_error)'
   github/REST: !!python/object/apply:collections.defaultdict
     args:
     - *id001
@@ -66,12 +62,8 @@ tests:
       - 'repos/get-commit (404: Not Found (endpoint exists, resource may be missing))'
       - 'users/list-ssh-signing-keys-for-user (404: Not Found (endpoint exists, resource
         may be missing))'
-  github/github: !!python/object/apply:collections.defaultdict
-    args:
-    - *id001
-    dictitems:
-      failed:
-      - 'users/get-by-username (None: test_framework_error)'
+      passed:
+      - users/get-by-username
   pokeapi/REST: !!python/object/apply:collections.defaultdict
     args:
     - *id001

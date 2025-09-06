@@ -7,7 +7,6 @@ from typing import Any, Dict, Iterable, Iterator, List
 import os
 import re
 import json
-from pathlib import Path
 
 import msgspec
 import niquests
@@ -40,7 +39,7 @@ def _update_postman_sources_yaml(updated_sources: List[Dict[str, Any]]):
                 final_yaml_string += f"- provider: {source['provider']}\n"
                 final_yaml_string += f"  url: {source['url']}\n"
                 if 'apis' in source:
-                    final_yaml_string += f"  apis:\n"
+                    final_yaml_string += "  apis:\n"
                     for api in sorted(source['apis']):
                         final_yaml_string += f"  - {api}\n"
             final_yaml_string += "\n"

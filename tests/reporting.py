@@ -1,5 +1,6 @@
 from __future__ import annotations
 import orjson as json
+import traceback
 from pathlib import Path
 from typing import Any, Callable, List, Dict
 from dataclasses import asdict
@@ -85,6 +86,8 @@ def run_test_operation(
     except MapiError as e:
         result_reporter.add_failed(service_key, op_name, e)
     except Exception as e:
+        print(f"--- UNHANDLED EXCEPTION IN {service_key}/{op_name} ---")
+        traceback.print_exc()
         error = MapiError(f"Unhandled exception: {e}", service=service_key, operation=op_name, error_type="test_framework_error")
         result_reporter.add_failed(service_key, op_name, error)
     
