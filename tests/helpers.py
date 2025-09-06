@@ -20,7 +20,7 @@ VALID_CALL_4XX = {
     409: "Conflict (valid request, but resource state conflict)",
     410: "Gone (resource used to exist, no longer available)",
     415: "Unsupported Media Type (request format not supported)",
-    417: "Expectation Failed (server understood, can’t meet Expect header)",
+    417: "Expectation Failed (server understood, can't meet Expect header)",
     422: "Unprocessable Entity (request structure correct, semantic issue)",
     428: "Precondition Required (missing conditional headers)",
     429: "Too Many Requests (rate limiting, server understood request)",
@@ -62,8 +62,12 @@ class ResultReporter:
     def add_http_validated_call(self, service: str, op_name: str, error: MapiError):
         """Adds a result for a call that received an expected 4xx or validation error."""
         status = getattr(error, 'http_status', 'N/A')
-        error_type = error.error_type or "validation"
-        self.results[service]["http_validated"].append(f"{op_name} ({status}: {error_type})")
+        if status in VALID_CALL_4XX:
+            details = VALID_CALL_4XX[status]
+            self.results[service]["http_validated"].append(f"{op_name} ({status}: {details})")
+        else:
+            error_type = error.error_type or "validation"
+            self.results[service]["http_validated"].append(f"{op_name} (validation: {error_type})")
 
     def add_skipped(self, service: str, creds_needed: list[str]):
         self.results[service]["skipped"] = {

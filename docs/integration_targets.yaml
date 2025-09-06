@@ -10,10 +10,11 @@ tests:
     - &id001 !!python/name:builtins.list ''
     dictitems:
       http_validated:
-      - 'applications_get_activity_instance (401: client_error)'
-      - 'get_guild_widget_settings (401: client_error)'
-      - 'list_guild_channels (401: client_error)'
-      - 'upload_application_attachment (401: client_error)'
+      - 'applications_get_activity_instance (401: Unauthorized (expected if no auth
+        provided))'
+      - 'get_guild_widget_settings (401: Unauthorized (expected if no auth provided))'
+      - 'list_guild_channels (401: Unauthorized (expected if no auth provided))'
+      - 'upload_application_attachment (401: Unauthorized (expected if no auth provided))'
       failed:
       - 'execute_slack_compatible_webhook (N/A: client_error)'
       passed:
@@ -26,11 +27,13 @@ tests:
     - *id001
     dictitems:
       http_validated:
-      - 'actions/add-custom-labels-to-self-hosted-runner-for-org (404: client_error)'
-      - 'classroom/get-a-classroom (401: client_error)'
-      - 'migrations/start-for-org (401: client_error)'
-      - 'repos/get-commit (404: client_error)'
-      - 'users/list-ssh-signing-keys-for-user (404: client_error)'
+      - 'actions/add-custom-labels-to-self-hosted-runner-for-org (404: Not Found (endpoint
+        exists, resource may be missing))'
+      - 'classroom/get-a-classroom (401: Unauthorized (expected if no auth provided))'
+      - 'migrations/start-for-org (401: Unauthorized (expected if no auth provided))'
+      - 'repos/get-commit (404: Not Found (endpoint exists, resource may be missing))'
+      - 'users/list-ssh-signing-keys-for-user (404: Not Found (endpoint exists, resource
+        may be missing))'
       passed:
       - users/get-by-username
   pokeapi/pokeapi: !!python/object/apply:collections.defaultdict
@@ -45,24 +48,29 @@ tests:
       - api_v2_machine_list
       - api_v2_pokemon_color_list
       http_validated:
-      - 'api_v2_version_retrieve (404: client_error)'
+      - 'api_v2_version_retrieve (404: Not Found (endpoint exists, resource may be
+        missing))'
   spotify/RESTAPI: !!python/object/apply:collections.defaultdict
     args:
     - *id001
     dictitems:
       http_validated:
-      - 'add-to-queue (401: client_error)'
-      - 'get-a-shows-episodes (401: client_error)'
-      - 'get-featured-playlists (401: client_error)'
-      - 'get-recommendations (401: client_error)'
-      - 'skip-users-playback-to-previous-track (401: client_error)'
+      - 'add-to-queue (401: Unauthorized (expected if no auth provided))'
+      - 'get-a-shows-episodes (401: Unauthorized (expected if no auth provided))'
+      - 'get-featured-playlists (401: Unauthorized (expected if no auth provided))'
+      - 'get-recommendations (401: Unauthorized (expected if no auth provided))'
+      - 'skip-users-playback-to-previous-track (401: Unauthorized (expected if no
+        auth provided))'
   stripe/stripe: !!python/object/apply:collections.defaultdict
     args:
     - *id001
     dictitems:
       http_validated:
-      - 'GetAccount (401: client_error)'
-      - 'GetIssuingTokensToken (401: client_error)'
-      - 'PostAccountsAccountPersonsPerson (401: client_error)'
-      - 'PostPaymentMethodsPaymentMethodDetach (401: client_error)'
-      - 'PostWebhookEndpointsWebhookEndpoint (401: client_error)'
+      - 'GetAccount (401: Unauthorized (expected if no auth provided))'
+      - 'GetIssuingTokensToken (401: Unauthorized (expected if no auth provided))'
+      - 'PostAccountsAccountPersonsPerson (401: Unauthorized (expected if no auth
+        provided))'
+      - 'PostPaymentMethodsPaymentMethodDetach (401: Unauthorized (expected if no
+        auth provided))'
+      - 'PostWebhookEndpointsWebhookEndpoint (401: Unauthorized (expected if no auth
+        provided))'
