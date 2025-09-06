@@ -11,7 +11,7 @@ def test_proxy_success():
     client = Mapi()
     with patch.object(client.http_client, 'request', return_value=MagicMock(ok=True)) as mock_request:
         mock_request.return_value.json.return_value = {"id": 1, "name": "ditto"}
-        result = client.pokeapi.pokeapi('api_v2_pokemon_retrieve', id='ditto')
+        result = client.pokeapi.REST('api_v2_pokemon_retrieve', id='ditto')
 
     assert isinstance(result, dict)
     assert "data" in result and "metadata" in result
@@ -32,14 +32,14 @@ def test_native_auth(mock_request: MagicMock):
     mock_request.return_value = mock_response
 
     client = Mapi(auth="my-dummy-token")
-    client.pokeapi.pokeapi('api_v2_pokemon_retrieve', id='ditto')
+    client.pokeapi.REST('api_v2_pokemon_retrieve', id='ditto')
     assert mock_request.called
     # Further assertions can be made on the `auth` object passed to the request
 
 def test_validation_error_structure():
     """Tests that a validation error returns the correct metadata structure."""
     client = Mapi()
-    result = client.pokeapi.pokeapi('api_v2_pokemon_retrieve') # Missing required 'id'
+    result = client.pokeapi.REST('api_v2_pokemon_retrieve') # Missing required 'id'
 
     assert isinstance(result, dict)
     assert result["data"] is None

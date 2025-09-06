@@ -12,9 +12,9 @@ from mapigen.models import ServiceData
 def test_load_service_from_disk_uncompressed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """Tests that load_service_from_disk can load an uncompressed file."""
     # Use pokeapi as it is small and does not require auth
-    service_data = storage.load_service_from_disk("pokeapi", "pokeapi", "github")
+    service_data = storage.load_service_from_disk("pokeapi", "REST", "github")
     assert isinstance(service_data, ServiceData)
-    assert service_data.service_name == "pokeapi"
+    assert service_data.service_name == "REST"
 
 def test_load_service_from_disk_file_not_found():
     """Tests that load_service_from_disk raises FileNotFoundError for a missing service."""

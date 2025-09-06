@@ -60,9 +60,12 @@ def _get_raw_parameter_details(param: dict[str, Any]) -> dict[str, Any]:
 
 def _get_canonical_parameter(
     param: dict[str, Any], operation_required: list[str]
-) -> Parameter:
+) -> Parameter | None:
     """Creates a canonical Parameter object from a raw parameter and the operation's required list."""
     param_name = param.get("name", "")
+    if not param_name:
+        logging.warning(f"Skipping parameter with no name: {param}")
+        return None
     is_required = param_name in operation_required
     return Parameter(
         name=param_name,
@@ -118,7 +121,9 @@ def get_params_from_operation(op_details: dict[str, Any], path_params: list[dict
         if "name" in param_def and "in" in param_def:
             if "schema" not in param_def:
                 param_def["schema"] = {}
-            params.append(_get_canonical_parameter(param_def, required_params))
+            canonical_param = _get_canonical_parameter(param_def, required_params)
+            if canonical_param:
+                params.append(canonical_param)
 
     request_body = op_details.get("requestBody", {})
     if "$ref" in request_body:
@@ -135,7 +140,9 @@ def get_params_from_operation(op_details: dict[str, Any], path_params: list[dict
                     param["schema"] = {}
                 if is_required:
                     param["required"] = True
-                params.append(_get_canonical_parameter(param, required_params if is_required else []))
+                canonical_param = _get_canonical_parameter(param, required_params if is_required else [])
+                if canonical_param:
+                    params.append(canonical_param)
             
     return params
 

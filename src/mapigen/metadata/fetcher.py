@@ -4,18 +4,137 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from itertools import islice
 from typing import Any, Dict, Iterable, Iterator, List
+import os
+import re
+import json
+from pathlib import Path
 
 import msgspec
 import niquests
 from tqdm import tqdm
 
 from mapigen.utils.compression_utils import compress_with_zstd
-from mapigen.utils.path_utils import get_service_data_path
+from mapigen.utils.path_utils import get_service_data_path, get_data_dir
 
-def fetch_single_spec(
-    provider: str, api: str, source: str, url: str, session: niquests.Session, args: Any
-) -> Dict[str, Any]:
-    """Fetches, normalizes, and compresses a single OpenAPI spec, returning metrics."""
+REGISTRY_DIR = get_data_dir().parent / "registry"
+POSTMAN_SOURCES_PATH = REGISTRY_DIR / "postman_sources.yaml"
+
+def _sanitize_api_name(name: str) -> str:
+    """Sanitizes a string to be a valid directory and api name."""
+    name = name.lower()
+    name = re.sub(r'\s+', '-', name)
+    name = re.sub(r'[^a-z0-9-]', '', name)
+    return name
+
+def _update_postman_sources_yaml(updated_sources: List[Dict[str, Any]]):
+    """Updates the postman_sources.yaml file with the latest collection names."""
+    try:
+        POSTMAN_SOURCES_PATH.write_bytes(msgspec.yaml.encode(updated_sources))
+        logging.info(f"Updated {POSTMAN_SOURCES_PATH} with the latest collection details.")
+    except Exception as e:
+        logging.error(f"Failed to update {POSTMAN_SOURCES_PATH}: {e}")
+
+def _discover_postman_collections(workspaces: List[Dict[str, Any]], session: niquests.Session) -> List[Dict[str, Any]]:
+    """Discovers all collections from a list of Postman workspaces."""
+    all_collections = []
+    updated_yaml_entries = []
+
+    for workspace_info in tqdm(workspaces, desc="Discovering Postman Collections"):
+        workspace_id = workspace_info["url"]
+        provider = workspace_info["provider"]
+        workspace_url = f"https://api.getpostman.com/workspaces/{workspace_id}"
+        
+        try:
+            resp = session.get(workspace_url, timeout=30)
+            resp.raise_for_status()
+            workspace_data = resp.json()
+            collections = workspace_data.get("workspace", {}).get("collections", [])
+            
+            source_for_yaml = workspace_info.copy()
+            source_for_yaml["apis"] = [_sanitize_api_name(c.get("name")) for c in collections if c.get("name")]
+            updated_yaml_entries.append(source_for_yaml)
+
+            for collection in collections:
+                if collection.get("name") and collection.get("uid"):
+                    all_collections.append({
+                        "provider": provider,
+                        "api": _sanitize_api_name(collection.get("name")),
+                        "uid": collection.get("uid"),
+                        "source": "postman"
+                    })
+        except Exception as e:
+            logging.error(f"Failed to fetch workspace {workspace_id}: {e}")
+            updated_yaml_entries.append(workspace_info) # Keep old entry on failure
+
+    _update_postman_sources_yaml(updated_yaml_entries)
+    return all_collections
+
+def _fetch_single_postman_collection(collection_info: Dict[str, Any], session: niquests.Session, args: Any) -> Dict[str, Any]:
+    """Fetches and transforms a single Postman collection."""
+    provider = collection_info["provider"]
+    api_name = collection_info["api"]
+    collection_uid = collection_info["uid"]
+    
+    service_data_dir = get_service_data_path(provider, api_name, "postman")
+    spec_path_zst = service_data_dir / f"{api_name}.openapi.json.zst"
+
+    if not args.force_reprocess and (service_data_dir / "metadata.yml").exists() and spec_path_zst.exists():
+        return {"status": "skipped", "provider": provider, "api": api_name, "source": "postman"}
+
+    transform_url = f"https://api.getpostman.com/collections/{collection_uid}/transformations?format=json"
+    t_start = time.perf_counter()
+
+    try:
+        spec_resp = session.get(transform_url, timeout=60)
+        spec_resp.raise_for_status()
+        raw_response_data = spec_resp.json()
+        content_str = raw_response_data.get("output")
+        if not content_str:
+            return {"status": "failure", "provider": provider, "api": api_name, "source": "postman", "reason": "'output' key not found in response"}
+        
+        content = json.dumps(json.loads(content_str), indent=2).encode('utf-8')
+        download_duration = time.perf_counter() - t_start
+
+        service_data_dir.mkdir(parents=True, exist_ok=True)
+        spec_path_zst.write_bytes(compress_with_zstd(content))
+
+        if args.no_compress_original:
+            (service_data_dir / f"{api_name}.openapi.json").write_bytes(content)
+
+        return {"status": "success", "provider": provider, "api": api_name, "source": "postman", "download_duration": download_duration, "url": transform_url}
+    except Exception as e:
+        logging.error(f"Failed to download collection {api_name} ({collection_uid}): {e}")
+        return {"status": "failure", "provider": provider, "api": api_name, "source": "postman", "reason": str(e)}
+
+def fetch_postman_specs(sources: List[Dict[str, Any]], args: Any) -> List[Dict[str, Any]]:
+    """Orchestrates the discovery and fetching of Postman collections."""
+    api_key = os.getenv("POSTMAN_API_KEY")
+    if not api_key:
+        logging.warning("POSTMAN_API_KEY not set. Skipping Postman sources.")
+        return []
+
+    headers = {"X-API-Key": api_key}
+    all_results: List[Dict[str, Any]] = []
+
+    with niquests.Session() as session:
+        session.headers.update(headers)
+        collections_to_fetch = _discover_postman_collections(sources, session)
+        
+        with ThreadPoolExecutor(max_workers=args.download_workers) as executor:
+            futures = {executor.submit(_fetch_single_postman_collection, c, session, args): c["api"] for c in collections_to_fetch}
+            for future in as_completed(futures):
+                all_results.append(future.result())
+
+    return all_results
+
+def fetch_single_spec(provider: str, api: str, source: str, url: str, session: niquests.Session, args: Any) -> Dict[str, Any]:
+    """Fetches, normalizes, and compresses a single OpenAPI spec from a URL."""
+    service_data_dir = get_service_data_path(provider, api, source)
+    spec_path_zst = service_data_dir / f"{api}.openapi.json.zst"
+
+    if not args.force_reprocess and (service_data_dir / "metadata.yml").exists() and spec_path_zst.exists():
+        return {"status": "skipped", "provider": provider, "api": api}
+
     headers = {"User-Agent": "mapigen-builder/1.0"}
     t_start = time.perf_counter()
     try:
@@ -31,21 +150,13 @@ def fetch_single_spec(
             data = msgspec.yaml.decode(content)
             content = msgspec.json.encode(data)
 
-        service_data_dir = get_service_data_path(provider, api, source)
         service_data_dir.mkdir(parents=True, exist_ok=True)
+        spec_path_zst.write_bytes(compress_with_zstd(content))
 
-        # Always save the compressed version for the pipeline to use
-        compressed_content = compress_with_zstd(content)
-        spec_path_zst = service_data_dir / f"{api}.openapi.json.zst"
-        spec_path_zst.write_bytes(compressed_content)
-
-        # If the flag is set, also save the original for debugging
         if args.no_compress_original:
-            spec_path_json = service_data_dir / f"{api}.openapi.json"
-            spec_path_json.write_bytes(content)
+            (service_data_dir / f"{api}.openapi.json").write_bytes(content)
 
-        return {"status": "success", "provider": provider, "api": api, "source": source, "download_duration": download_duration}
-
+        return {"status": "success", "provider": provider, "api": api, "source": source, "download_duration": download_duration, "url": url}
     except Exception as e:
         logging.error(f"Failed to download {api} from {source}: {e}")
         return {"status": "failure", "provider": provider, "api": api, "source": source, "reason": str(e)}
@@ -56,13 +167,10 @@ def batcher(iterable: Iterable, batch_size: int) -> Iterator[List[Any]]:
     while chunk := list(islice(iterator, batch_size)):
         yield chunk
 
-def fetch_specs_concurrently(
-    sources: List[Dict[str, Any]], batch_size: int, args: Any
-) -> List[Dict[str, Any]]:
-    """
-    Fetches and compresses multiple specs concurrently in batches, saving them to disk.
-    Returns a list of result dictionaries.
-    """
+def fetch_specs_concurrently(sources: List[Dict[str, Any]], batch_size: int, args: Any) -> List[Dict[str, Any]]:
+    """Fetches and compresses multiple specs concurrently in batches, saving them to disk."""
+    if not sources:
+        return []
     logging.info(f"Downloading {len(sources)} specs in batches of {batch_size}...")
     all_results: List[Dict[str, Any]] = []
 

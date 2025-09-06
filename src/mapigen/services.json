@@ -1,23 +1,20 @@
 {
   "version": "2.0",
-  "generated_at": "2025-09-06T00:37:24.440378+00:00",
+  "generated_at": "2025-09-06T03:40:41.207107+00:00",
   "providers": {
     "github": {
-      "github": {
+      "REST": {
         "sources": [
           "github"
         ],
         "operation_count": 1060,
-        "popularity_rank": 1,
-        "auth_types": [
-          "bearer_token",
-          "basic_auth"
-        ],
-        "primary_auth": "bearer_token"
+        "popularity_rank": 999,
+        "auth_types": [],
+        "primary_auth": "none"
       }
     },
     "spotify": {
-      "RESTAPI": {
+      "REST": {
         "sources": [
           "custom"
         ],
@@ -29,13 +26,38 @@
         "primary_auth": "oauth2"
       }
     },
+    "asana": {
+      "asana-sdk": {
+        "sources": [
+          "github"
+        ],
+        "operation_count": 199,
+        "popularity_rank": 999,
+        "auth_types": [
+          "bearer_token"
+        ],
+        "primary_auth": "bearer_token"
+      }
+    },
     "discord": {
-      "discord": {
+      "REST": {
         "sources": [
           "github"
         ],
         "operation_count": 223,
-        "popularity_rank": 2,
+        "popularity_rank": 999,
+        "auth_types": [
+          "api_key",
+          "oauth2"
+        ],
+        "primary_auth": "api_key"
+      },
+      "discord-rest-api": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 170,
+        "popularity_rank": 999,
         "auth_types": [
           "api_key",
           "oauth2"
@@ -44,17 +66,371 @@
       }
     },
     "pokeapi": {
-      "pokeapi": {
+      "REST": {
         "sources": [
           "github"
         ],
         "operation_count": 97,
-        "popularity_rank": 3,
+        "popularity_rank": 999,
         "auth_types": [
           "basic_auth",
           "api_key"
         ],
         "primary_auth": "basic_auth"
+      }
+    },
+    "postman": {
+      "postman-to-openapi": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 1,
+        "popularity_rank": 999,
+        "auth_types": [
+          "api_key"
+        ],
+        "primary_auth": "api_key"
+      },
+      "team-transfer": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 22,
+        "popularity_rank": 999,
+        "auth_types": [
+          "api_key"
+        ],
+        "primary_auth": "api_key"
+      },
+      "postman-to-markdown-deprecated": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 1,
+        "popularity_rank": 999,
+        "auth_types": [
+          "api_key"
+        ],
+        "primary_auth": "api_key"
+      },
+      "postman-to-jmeter": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 1,
+        "popularity_rank": 999,
+        "auth_types": [
+          "api_key"
+        ],
+        "primary_auth": "api_key"
+      },
+      "environment-scanner": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 3,
+        "popularity_rank": 999,
+        "auth_types": [],
+        "primary_auth": "none"
+      },
+      "deactivate-user-accounts": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 1,
+        "popularity_rank": 999,
+        "auth_types": [],
+        "primary_auth": "none"
+      },
+      "create-a-collection-backup": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 2,
+        "popularity_rank": 999,
+        "auth_types": [
+          "api_key"
+        ],
+        "primary_auth": "api_key"
+      },
+      "api-usage": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 1,
+        "popularity_rank": 999,
+        "auth_types": [],
+        "primary_auth": "none"
+      },
+      "copy-a-workspace": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 20,
+        "popularity_rank": 999,
+        "auth_types": [
+          "api_key"
+        ],
+        "primary_auth": "api_key"
+      },
+      "postman-assets-scaffolding": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 20,
+        "popularity_rank": 999,
+        "auth_types": [
+          "api_key",
+          "oauth2"
+        ],
+        "primary_auth": "api_key"
+      },
+      "postman-api": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 213,
+        "popularity_rank": 999,
+        "auth_types": [
+          "api_key"
+        ],
+        "primary_auth": "api_key"
+      },
+      "postbot": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 7,
+        "popularity_rank": 999,
+        "auth_types": [],
+        "primary_auth": "none"
+      },
+      "postman-to-swagger-oas-2": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 1,
+        "popularity_rank": 999,
+        "auth_types": [
+          "api_key"
+        ],
+        "primary_auth": "api_key"
+      },
+      "create-a-collection-backup-via-transfer": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 9,
+        "popularity_rank": 999,
+        "auth_types": [
+          "api_key"
+        ],
+        "primary_auth": "api_key"
+      },
+      "sort-collection-requests-alphabetically": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 2,
+        "popularity_rank": 999,
+        "auth_types": [
+          "api_key"
+        ],
+        "primary_auth": "api_key"
+      },
+      "developer-app-ecosystem": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 0,
+        "popularity_rank": 999,
+        "auth_types": [],
+        "primary_auth": "none"
+      },
+      "delete-postman-elements-by-tag": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 5,
+        "popularity_rank": 999,
+        "auth_types": [
+          "api_key"
+        ],
+        "primary_auth": "api_key"
+      }
+    },
+    "aws": {
+      "aws-sellers": {
+        "sources": [
+          "github"
+        ],
+        "operation_count": 2,
+        "popularity_rank": 999,
+        "auth_types": [],
+        "primary_auth": "none"
+      }
+    },
+    "salesforce": {
+      "mulesoft-anypoint-platform-apis": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 255,
+        "popularity_rank": 999,
+        "auth_types": [
+          "bearer_token"
+        ],
+        "primary_auth": "bearer_token"
+      },
+      "marketing-cloud-account-engagement-api-fka-pardot-api": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 173,
+        "popularity_rank": 999,
+        "auth_types": [
+          "oauth2"
+        ],
+        "primary_auth": "oauth2"
+      },
+      "agent-api": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 5,
+        "popularity_rank": 999,
+        "auth_types": [
+          "oauth2"
+        ],
+        "primary_auth": "oauth2"
+      },
+      "salesforce-crm-analytics-connect-api": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 37,
+        "popularity_rank": 999,
+        "auth_types": [
+          "oauth2"
+        ],
+        "primary_auth": "oauth2"
+      },
+      "salesforce-commerce-b2c": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 98,
+        "popularity_rank": 999,
+        "auth_types": [
+          "basic_auth",
+          "bearer_token"
+        ],
+        "primary_auth": "basic_auth"
+      },
+      "salesforce-platform-apis": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 325,
+        "popularity_rank": 999,
+        "auth_types": [
+          "oauth2"
+        ],
+        "primary_auth": "oauth2"
+      },
+      "models-api": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 4,
+        "popularity_rank": 999,
+        "auth_types": [
+          "oauth2"
+        ],
+        "primary_auth": "oauth2"
+      },
+      "salesforce-data-cloud-connect-apis": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 136,
+        "popularity_rank": 999,
+        "auth_types": [
+          "oauth2"
+        ],
+        "primary_auth": "oauth2"
+      },
+      "salesforce-data-cloud-apis": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 30,
+        "popularity_rank": 999,
+        "auth_types": [
+          "bearer_token",
+          "oauth2"
+        ],
+        "primary_auth": "bearer_token"
+      },
+      "mulesoft-catalyst-knowledge-hub--others": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 35,
+        "popularity_rank": 999,
+        "auth_types": [],
+        "primary_auth": "none"
+      },
+      "tableau-apis": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 393,
+        "popularity_rank": 999,
+        "auth_types": [
+          "api_key"
+        ],
+        "primary_auth": "api_key"
+      },
+      "mulesoft-automation-platform-apis": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 97,
+        "popularity_rank": 999,
+        "auth_types": [],
+        "primary_auth": "none"
+      },
+      "salesforce-commerce-b2bd2c": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 17,
+        "popularity_rank": 999,
+        "auth_types": [
+          "bearer_token"
+        ],
+        "primary_auth": "bearer_token"
+      },
+      "salesforce-messaging-for-in-app-and-web-miaw-api": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 14,
+        "popularity_rank": 999,
+        "auth_types": [
+          "bearer_token"
+        ],
+        "primary_auth": "bearer_token"
+      },
+      "salesforce-marketing-cloud-apis": {
+        "sources": [
+          "postman"
+        ],
+        "operation_count": 116,
+        "popularity_rank": 999,
+        "auth_types": [],
+        "primary_auth": "none"
       }
     },
     "stripe": {

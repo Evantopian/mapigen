@@ -218,6 +218,7 @@ __marimo__/
 
 # test data
 pytest_report.xml
+tests/integration/*_generated.py
 
 tmp/
 prof/

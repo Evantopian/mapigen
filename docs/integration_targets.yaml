@@ -5,9 +5,27 @@ info:
     operations. Calls that are successfully sent and receive an expected error (e.g.,
     4xx) are listed under http_validated.
 tests:
-  discord/discord: !!python/object/apply:collections.defaultdict
+  asana/asana-sdk: !!python/object/apply:collections.defaultdict
     args:
     - &id001 !!python/name:builtins.list ''
+    dictitems:
+      http_validated:
+      - 'addCustomFieldSettingForPortfolio (401: Unauthorized (expected if no auth
+        provided))'
+      - 'createTask (401: Unauthorized (expected if no auth provided))'
+      - 'getProjectStatus (401: Unauthorized (expected if no auth provided))'
+      - 'getTimeTrackingEntry (401: Unauthorized (expected if no auth provided))'
+      - 'updateGoalMetric (401: Unauthorized (expected if no auth provided))'
+  aws/aws-sellers: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      failed:
+      - 'getAccount (None: sdk)'
+      - 'getMarketplaceParticipations (None: sdk)'
+  discord/REST: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
     dictitems:
       http_validated:
       - 'applications_get_activity_instance (401: Unauthorized (expected if no auth
@@ -17,12 +35,26 @@ tests:
       - 'upload_application_attachment (401: Unauthorized (expected if no auth provided))'
       failed:
       - 'execute_slack_compatible_webhook (None: client_error)'
-      passed:
-      - create_message
-      - get_channel
-      - list_messages
-      - get_message
-  github/github: !!python/object/apply:collections.defaultdict
+  discord/discord-rest-api: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      http_validated:
+      - 'bulkDeleteMessages (401: Unauthorized (expected if no auth provided))'
+      - 'getActiveGuildThreads (401: Unauthorized (expected if no auth provided))'
+      - 'getGuildsOnboarding (401: Unauthorized (expected if no auth provided))'
+      - 'listGuildEmojis (401: Unauthorized (expected if no auth provided))'
+      - 'triggerTypingIndicator (401: Unauthorized (expected if no auth provided))'
+  discord/discord: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      failed:
+      - 'create_message (None: test_framework_error)'
+      - 'get_channel (None: test_framework_error)'
+      - 'list_messages (None: test_framework_error)'
+      - 'get_message (None: test_framework_error)'
+  github/REST: !!python/object/apply:collections.defaultdict
     args:
     - *id001
     dictitems:
@@ -34,23 +66,286 @@ tests:
       - 'repos/get-commit (404: Not Found (endpoint exists, resource may be missing))'
       - 'users/list-ssh-signing-keys-for-user (404: Not Found (endpoint exists, resource
         may be missing))'
-      passed:
-      - users/get-by-username
-  pokeapi/pokeapi: !!python/object/apply:collections.defaultdict
+  github/github: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      failed:
+      - 'users/get-by-username (None: test_framework_error)'
+  pokeapi/REST: !!python/object/apply:collections.defaultdict
     args:
     - *id001
     dictitems:
       passed:
-      - api_v2_pokemon_retrieve
-      - api_v2_pokemon_retrieve
       - api_v2_ability_list
       - api_v2_evolution_trigger_list
       - api_v2_machine_list
       - api_v2_pokemon_color_list
+      - api_v2_pokemon_retrieve
       http_validated:
       - 'api_v2_version_retrieve (404: Not Found (endpoint exists, resource may be
         missing))'
-  spotify/RESTAPI: !!python/object/apply:collections.defaultdict
+  pokeapi/pokeapi: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      failed:
+      - 'api_v2_pokemon_retrieve (None: test_framework_error)'
+  postman/api-usage: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      http_validated:
+      - 'visualizePostmanFeatureUsage (401: Unauthorized (expected if no auth provided))'
+  postman/copy-a-workspace: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      http_validated:
+      - 'decisionEngine (404: Not Found (endpoint exists, resource may be missing))'
+      - 'nCreateEnvironment (401: Unauthorized (expected if no auth provided))'
+      - 'nCreateWorkspace (401: Unauthorized (expected if no auth provided))'
+      - 'oGetCollection (401: Unauthorized (expected if no auth provided))'
+      - 'oGetWorkspace (401: Unauthorized (expected if no auth provided))'
+  postman/create-a-collection-backup-via-transfer: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      http_validated:
+      - 'controller (404: Not Found (endpoint exists, resource may be missing))'
+      - 'copyFoldersToDestinationCollection (401: Unauthorized (expected if no auth
+        provided))'
+      - 'getFolderName (401: Unauthorized (expected if no auth provided))'
+      - 'getRequestName (401: Unauthorized (expected if no auth provided))'
+      - 'getSourceCollectionData (401: Unauthorized (expected if no auth provided))'
+  postman/create-a-collection-backup: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      http_validated:
+      - 'getSourceCollectionAndRemoveIds (401: Unauthorized (expected if no auth provided))'
+  postman/delete-postman-elements-by-tag: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      http_validated:
+      - 'getAllElementsByTag (401: Unauthorized (expected if no auth provided))'
+      - 'printResults (404: Not Found (endpoint exists, resource may be missing))'
+  postman/environment-scanner: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      http_validated:
+      - 'accessContentsOfASpecificEnvironment (401: Unauthorized (expected if no auth
+        provided))'
+      - 'accessTheContentsOfWorkspacesAccessibleToYou (401: Unauthorized (expected
+        if no auth provided))'
+      - 'getAllWorkspaces (401: Unauthorized (expected if no auth provided))'
+  postman/postbot: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      http_validated:
+      - 'instagramPublishReel (404: Not Found (endpoint exists, resource may be missing))'
+      - 'notionCreateAPage (404: Not Found (endpoint exists, resource may be missing))'
+      - 'pokemonGetDetails (404: Not Found (endpoint exists, resource may be missing))'
+      - 'weeklyWeatherForecast1 (404: Not Found (endpoint exists, resource may be
+        missing))'
+      - 'whatsappSendTextMessage (404: Not Found (endpoint exists, resource may be
+        missing))'
+  postman/postman-api: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      failed:
+      - 'addACollection (None: client_error)'
+      http_validated:
+      - 'generateATool (401: Unauthorized (expected if no auth provided))'
+      - 'getAWorkspaceSRoles (401: Unauthorized (expected if no auth provided))'
+      - 'getDocumentationRelations (401: Unauthorized (expected if no auth provided))'
+      - 'transformCollectionToOpenapi (401: Unauthorized (expected if no auth provided))'
+  postman/postman-assets-scaffolding: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      failed:
+      - 'addApiToPrivateApiNetwork (None: test_framework_error)'
+      - 'bitbucketYaml (None: client_error)'
+      - 'getCollectionFromApiBuilder (None: client_error)'
+      - 'gitlabYaml (None: client_error)'
+      http_validated:
+      - 'createEnvironment (404: Not Found (endpoint exists, resource may be missing))'
+  postman/postman-to-jmeter: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      http_validated:
+      - 'generateAJmeterTestPlan (401: Unauthorized (expected if no auth provided))'
+  postman/postman-to-markdown-deprecated: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      http_validated:
+      - 'generateMarkdown (401: Unauthorized (expected if no auth provided))'
+  postman/postman-to-openapi: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      http_validated:
+      - 'generateAnOpenapiSchema (401: Unauthorized (expected if no auth provided))'
+  postman/postman-to-swagger-oas-2: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      http_validated:
+      - 'generateASwaggerSchema (401: Unauthorized (expected if no auth provided))'
+  postman/sort-collection-requests-alphabetically: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      http_validated:
+      - 'getACollection (401: Unauthorized (expected if no auth provided))'
+      - 'moveRequestToTheEndOfTheCollection (401: Unauthorized (expected if no auth
+        provided))'
+  postman/team-transfer: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      http_validated:
+      - 'decisionEngine (404: Not Found (endpoint exists, resource may be missing))'
+      - 'nCreateEnvironment (401: Unauthorized (expected if no auth provided))'
+      - 'nGetApiSVersionsForDeletingDraftVersion (401: Unauthorized (expected if no
+        auth provided))'
+      - 'oGetDetails (401: Unauthorized (expected if no auth provided))'
+      - 'oGetWorkspace (401: Unauthorized (expected if no auth provided))'
+  salesforce/agent-api: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      http_validated:
+      - 'sendMessageStreaming (404: Not Found (endpoint exists, resource may be missing))'
+      - 'sendMessageSynchronous (404: Not Found (endpoint exists, resource may be
+        missing))'
+      - 'startSession (404: Not Found (endpoint exists, resource may be missing))'
+      - 'submitFeedback (404: Not Found (endpoint exists, resource may be missing))'
+  salesforce/marketing-cloud-account-engagement-api-fka-pardot-api: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      http_validated:
+      - 'addDependent (401: Unauthorized (expected if no auth provided))'
+      - 'create2 (401: Unauthorized (expected if no auth provided))'
+      - 'query29 (401: Unauthorized (expected if no auth provided))'
+      - 'read29 (401: Unauthorized (expected if no auth provided))'
+      - 'upsertLatestByEmail (401: Unauthorized (expected if no auth provided))'
+  salesforce/models-api: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      http_validated:
+      - 'generateChatConversationWithContext (404: Not Found (endpoint exists, resource
+        may be missing))'
+      - 'generateEmbeddings (404: Not Found (endpoint exists, resource may be missing))'
+      - 'generateTextStandalonePrompt (404: Not Found (endpoint exists, resource may
+        be missing))'
+      failed:
+      - 'submitFeedback (None: test_framework_error)'
+  salesforce/mulesoft-automation-platform-apis: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      failed:
+      - 'alertTargets (None: network_error)'
+      - 'downloadanaylsisPackage (None: network_error)'
+      - 'getSingleAnalysisPackage (None: network_error)'
+      - 'processexecutioninformation (None: network_error)'
+      - 'userTasksAssignedToMe (None: network_error)'
+  salesforce/mulesoft-catalyst-knowledge-hub--others: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      http_validated:
+      - '01GetAccessToken (404: Not Found (endpoint exists, resource may be missing))'
+      - '3DeployProxyForAnExistingApi (404: Not Found (endpoint exists, resource may
+        be missing))'
+      - '6GetDeployments (404: Not Found (endpoint exists, resource may be missing))'
+      - 'getApps (404: Not Found (endpoint exists, resource may be missing))'
+      - 'postBulk (404: Not Found (endpoint exists, resource may be missing))'
+  salesforce/salesforce-commerce-b2bd2c: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      failed:
+      - 'addItemToTheCart (None: network_error)'
+      - 'createAPayment (None: network_error)'
+      - 'getOrderSummaries (None: network_error)'
+      - 'getWebstoreId (None: network_error)'
+      - 'updateCheckoutWithPayment (None: network_error)'
+  salesforce/salesforce-commerce-b2c: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      http_validated:
+      - '1dPromotionDetails (404: Not Found (endpoint exists, resource may be missing))'
+      - 'scapiCreateCustomerProductList (404: Not Found (endpoint exists, resource
+        may be missing))'
+      - 'scapiGetPage (404: Not Found (endpoint exists, resource may be missing))'
+      - 'sfccLoginShowGetCsrf (404: Not Found (endpoint exists, resource may be missing))'
+      - 'slasSessionBridgeGetJwtForDwsidCookie (404: Not Found (endpoint exists, resource
+        may be missing))'
+  salesforce/salesforce-crm-analytics-connect-api: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      failed:
+      - 'getactioncollection (None: network_error)'
+      - 'getdataflowjob (None: network_error)'
+      - 'getdependency (None: network_error)'
+      - 'getschedule (None: network_error)'
+      - 'postquery (None: network_error)'
+  salesforce/salesforce-data-cloud-apis: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      http_validated:
+      - 'completePostmanAuthentication (403: Forbidden (server understood request,
+        access denied))'
+      - 'dmoById (404: Not Found (endpoint exists, resource may be missing))'
+      - 'metadataAllCalculatedInsights (404: Not Found (endpoint exists, resource
+        may be missing))'
+      - 'query1 (404: Not Found (endpoint exists, resource may be missing))'
+      - 'syncRecordValidation (404: Not Found (endpoint exists, resource may be missing))'
+  salesforce/salesforce-data-cloud-connect-apis: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      failed:
+      - 'cancelDataTransform (None: network_error)'
+      - 'getConfiguredModel (None: network_error)'
+      - 'getDataTransformRunHistory (None: network_error)'
+      - 'getSqlQuery (None: network_error)'
+      - 'validateDataTransforms (None: network_error)'
+  salesforce/salesforce-marketing-cloud-apis: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      failed:
+      - 'advancedQuery (None: network_error)'
+      - 'emailGetSendDefinitionByKey (None: network_error)'
+      - 'getFileImportValidationSummary (None: network_error)'
+      - 'retrieveAllLocations (None: network_error)'
+      - 'verifyCallback (None: network_error)'
+  salesforce/salesforce-messaging-for-in-app-and-web-miaw-api: !!python/object/apply:collections.defaultdict
+    args:
+    - *id001
+    dictitems:
+      failed:
+      - 'addTypingIndicator (None: network_error)'
+      - 'generateAccessTokenForUnauthenticatedUser (None: network_error)'
+      - 'listConversations (None: network_error)'
+      - 'sendMessage (None: network_error)'
+      - 'serverSentEvents (None: network_error)'
+  spotify/REST: !!python/object/apply:collections.defaultdict
     args:
     - *id001
     dictitems:

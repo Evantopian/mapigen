@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+import os
+import json
+from typing import Any, Dict, List
 from pathlib import Path
 import yaml
 from collections import defaultdict
@@ -43,12 +45,14 @@ class ResultReporter:
     _instance: 'ResultReporter | None' = None
     results: Dict[str, Dict[str, Any]]
     output_path: Path
+    temp_dir: Path
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(ResultReporter, cls).__new__(cls)
             cls._instance.results = defaultdict(lambda: defaultdict(list))
             cls._instance.output_path = Path(__file__).resolve().parent.parent / "docs" / "integration_targets.yaml"
+            cls._instance.temp_dir = Path(__file__).resolve().parent.parent / "tmp" / "pytest-xdist-results"
         return cls._instance
 
     def add_passed(self, service: str, op_name: str, duration_ms: int):
@@ -75,25 +79,62 @@ class ResultReporter:
             "creds_needed": creds_needed,
         }
 
+    def _merge_results(self) -> Dict[str, Dict[str, List[Any]]]:
+        """Merges results from all worker temp files."""
+        merged_results: Dict[str, Dict[str, List[Any]]] = defaultdict(lambda: defaultdict(list))
+        if not self.temp_dir.exists():
+            return dict(self.results)
+
+        for f in self.temp_dir.glob("*.json"):
+            worker_results = json.loads(f.read_text())
+            for service, categories in worker_results.items():
+                for category, items in categories.items():
+                    merged_results[service][category].extend(items)
+            f.unlink()
+        
+        if self.temp_dir.exists():
+            try:
+                self.temp_dir.rmdir()
+            except OSError:
+                pass # Ignore errors if directory is not empty
+            
+        return dict(merged_results)
+
     def save(self):
-        """Writes the collected results to the YAML file and prints a summary."""
-        if not self.results:
-            return
+        """Writes the collected results to the appropriate file (temp or final)."""
+        worker_id = os.getenv("PYTEST_XDIST_WORKER")
 
-        header = {
-            "title": "Integration Test Targets Status",
-            "description": (
-                "This file is an auto-generated report on the status of integration tests. "
-                "It uses a 5-point sampling method to select a representative subset of operations. "
-                "Calls that are successfully sent and receive an expected error (e.g., 4xx) are listed under http_validated."
-            ),
-        }
-        final_yaml: Dict[str, Any] = {"info": header, "tests": dict(self.results)}
+        if worker_id:
+            # We are in a worker process, save to a temp file
+            if not self.results:
+                return
+            self.temp_dir.mkdir(parents=True, exist_ok=True)
+            temp_file = self.temp_dir / f"results-{worker_id}.json"
+            temp_file.write_text(json.dumps(dict(self.results)))
+        else:
+            # We are in the master process, merge and save final report
+            final_results = self._merge_results()
+            if not final_results:
+                # Handle the case where there are no worker files (e.g., non-parallel run)
+                final_results = dict(self.results)
+            
+            if not final_results:
+                return
 
-        with open(self.output_path, "w") as f:
-            yaml.dump(final_yaml, f, sort_keys=False, default_flow_style=False, indent=2)
+            header = {
+                "title": "Integration Test Targets Status",
+                "description": (
+                    "This file is an auto-generated report on the status of integration tests. "
+                    "It uses a 5-point sampling method to select a representative subset of operations. "
+                    "Calls that are successfully sent and receive an expected error (e.g., 4xx) are listed under http_validated."
+                ),
+            }
+            final_yaml: Dict[str, Any] = {"info": header, "tests": final_results}
 
-        print(f"\nIntegration test report successfully generated at {self.output_path}")
+            with open(self.output_path, "w") as f:
+                yaml.dump(final_yaml, f, sort_keys=False, default_flow_style=False, indent=2)
+
+            print(f"\nIntegration test report successfully generated at {self.output_path}")
 
 
 # Singleton instance for use in tests

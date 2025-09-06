@@ -1,6 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 from typing import Any, List, Dict
+import argparse
 
 from mapigen.tools import pipeline
 
@@ -19,7 +20,8 @@ def test_process_single_service_failure(tmp_path: Path):
         "source": "custom",
         "url": "http://localhost/corrupted.json"
     }
-    result = pipeline.process_single_service(service_info)
+    args = argparse.Namespace(no_compress_utilize=True)
+    result = pipeline.process_single_service(service_info, args)
     assert result["status"] == "failure"
 
 

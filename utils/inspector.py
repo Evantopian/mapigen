@@ -4,6 +4,8 @@ from mapigen import Mapi
 from mapigen.cache.storage import load_service_from_disk
 import msgspec
 from mapigen.models import ParameterRef
+from mapigen.utils.compression_utils import decompress_zstd
+from pathlib import Path
 
 from typing import Any
 
@@ -41,6 +43,10 @@ def main():
     get_auth_parser = subparsers.add_parser("get-auth", help="Get the authentication details for a specific API.")
     get_auth_parser.add_argument("provider", help="The name of the provider.")
     get_auth_parser.add_argument("api", help="The name of the API.")
+
+    # --- decompress command ---
+    decompress_parser = subparsers.add_parser("decompress", help="Decompress a zstd file.")
+    decompress_parser.add_argument("file_path", help="The path to the file to decompress.")
 
     args = parser.parse_args()
     client = Mapi()
@@ -83,6 +89,18 @@ def main():
             print_json(operation_data_dict)
         else:
             print(f"Error: Operation '{args.operation}' not found in API '{args.api}'.")
+
+    elif args.command == "decompress":
+        file_path = Path(args.file_path)
+        if not file_path.exists():
+            print(f"Error: File not found at {file_path}")
+            return
+
+        decompressed_data = decompress_zstd(file_path.read_bytes())
+        
+        output_path = file_path.with_suffix('')
+        output_path.write_bytes(decompressed_data)
+        print(f"File decompressed to: {output_path}")
 
 if __name__ == "__main__":
     main()

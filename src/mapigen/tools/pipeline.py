@@ -22,12 +22,12 @@ def batcher(iterable: Iterable, batch_size: int) -> Iterator[list]:
     while chunk := list(islice(iterator, batch_size)):
         yield chunk
 
-def process_single_service(service_info: dict[str, Any]) -> dict[str, Any]:
+def process_single_service(service_info: dict[str, Any], args: Any) -> dict[str, Any]:
     """Worker function to process a single service, returning metrics."""
     provider = service_info["provider"]
     api = service_info["api"]
     source = service_info["source"]
-    url = service_info["url"]
+    url = service_info.get("url", "")
 
     metrics: Dict[str, Any] = {"provider": provider, "api": api, "source": source, "url": url}
     try:
@@ -53,7 +53,8 @@ def process_single_service(service_info: dict[str, Any]) -> dict[str, Any]:
             "auth_info": extract_auth_info(raw_spec),
             "processed_op_count": len(processed_data["operations"]),
             "reusable_param_count": len(processed_data.get("components", {}).get("parameters", {})),
-            "utilize_path": utilize_path
+            "utilize_path": utilize_path,
+            "no_compress_utilize": args.no_compress_utilize
             })
         return metrics
     except Exception as e:
@@ -63,9 +64,16 @@ def process_single_service(service_info: dict[str, Any]) -> dict[str, Any]:
 
 def create_balanced_batches(service_info: List[Dict[str, Any]], num_batches: int) -> List[List[Dict[str, Any]]]:
     """Creates balanced batches based on file size using a greedy algorithm."""
-    service_info = [s for s in service_info if s.get("size", 0) > 0]
-    if not service_info:
-        return []
+    non_zero_services = [s for s in service_info if s.get("size", 0) > 0]
+
+    if not non_zero_services:
+        logging.info("All services have size 0, creating simple batches.")
+        if not service_info:
+            return []
+        batch_size = (len(service_info) + num_batches - 1) // num_batches
+        return list(batcher(service_info, batch_size))
+
+    service_info = non_zero_services
 
     # For small numbers of items, don't bother with complex batching.
     if len(service_info) < num_batches * 2:
@@ -103,7 +111,7 @@ def run_processing_pipeline(services_to_process: List[Dict[str, Any]], args: Any
     processing_results: List[Dict[str, Any]] = []
     for batch in tqdm(processing_batches, desc="Processing Batches"):
         with ProcessPoolExecutor(max_workers=args.process_workers) as executor:
-            futures = {executor.submit(process_single_service, service): service["api"] for service in batch}
+            futures = {executor.submit(process_single_service, service, args): service["api"] for service in batch}
             for future in as_completed(futures):
                 result = future.result()
                 processing_results.append(result)

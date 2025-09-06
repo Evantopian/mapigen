@@ -11,6 +11,7 @@ load_dotenv()
 
 # --- Test Data ---
 SERVICE_NAME = "pokeapi"
+API_NAME = "REST"
 
 
 @pytest.fixture(scope="module")
@@ -55,7 +56,7 @@ def test_pokeapi_integration(client: Mapi):
         run_test_operation(
             client=client,
             provider_name=SERVICE_NAME,
-            api_name=SERVICE_NAME,
+            api_name=API_NAME,
             op_name=op_name,
             operations_checked=operations_checked,
             assertion_callback=assert_pikachu_data,
