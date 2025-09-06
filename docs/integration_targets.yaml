@@ -16,7 +16,7 @@ tests:
       - 'list_guild_channels (401: Unauthorized (expected if no auth provided))'
       - 'upload_application_attachment (401: Unauthorized (expected if no auth provided))'
       failed:
-      - 'execute_slack_compatible_webhook (N/A: client_error)'
+      - 'execute_slack_compatible_webhook (None: client_error)'
       passed:
       - create_message
       - get_channel

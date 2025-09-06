@@ -88,7 +88,7 @@ class ResultReporter:
                 "Calls that are successfully sent and receive an expected error (e.g., 4xx) are listed under http_validated."
             ),
         }
-        final_yaml = {"info": header, "tests": dict(self.results)}
+        final_yaml: Dict[str, Any] = {"info": header, "tests": dict(self.results)}
 
         with open(self.output_path, "w") as f:
             yaml.dump(final_yaml, f, sort_keys=False, default_flow_style=False, indent=2)

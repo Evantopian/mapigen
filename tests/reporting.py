@@ -22,7 +22,7 @@ SAVE_PAYLOAD_TOGGLE: Dict[str, bool] = {
     "pokeapi": True,
 }
 
-def _save_payload_if_enabled(provider_name: str, api_name: str, op_name: str, response_wrapper: dict) -> str | None:
+def _save_payload_if_enabled(provider_name: str, api_name: str, op_name: str, response_wrapper: Dict[str, Any]) -> str | None:
     """Checks the toggle and saves the full response payload if enabled."""
     if SAVE_PAYLOAD_TOGGLE.get(api_name, False):
         tmp_dir = Path(__file__).resolve().parent.parent / "tmp"
@@ -33,7 +33,7 @@ def _save_payload_if_enabled(provider_name: str, api_name: str, op_name: str, re
         file_path = tmp_dir / f"{provider_name}_{api_name}_{safe_op_name}_response.json"
 
         # Prepare data for serialization
-        data_to_save = response_wrapper.copy()
+        data_to_save: Dict[str, Any] = response_wrapper.copy()
         if "metadata" in data_to_save and hasattr(
             data_to_save["metadata"], "__dataclass_fields__"
         ):
@@ -51,7 +51,7 @@ def run_test_operation(
     op_name: str,
     operations_checked: List[str],
     assertion_callback: Callable[[Any], None],
-    **kwargs,
+    **kwargs: Any,
 ):
     """A helper function to run a single integration test operation and report the result."""
     service_key = f"{provider_name}/{api_name}"
@@ -69,11 +69,9 @@ def run_test_operation(
                 f"Expected client error: {metadata.http_status or metadata.error_type}", 
                 service=service_key, 
                 operation=op_name, 
-                error_type=metadata.error_type
+                error_type=metadata.error_type,
+                http_status=metadata.http_status
             )
-            # Manually set http_status on the error object if it's a validation error
-            if not hasattr(error, 'http_status') or error.http_status is None:
-                error.http_status = metadata.http_status
             result_reporter.add_http_validated_call(service_key, op_name, error)
         else:
             error = MapiError(

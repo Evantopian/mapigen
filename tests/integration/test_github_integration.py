@@ -1,6 +1,7 @@
 import os
 import pytest
 from dotenv import load_dotenv
+from typing import Any, List, Dict
 
 from mapigen import Mapi, Auth, MapiError
 from ..helpers import result_reporter
@@ -28,12 +29,12 @@ def test_github_integration(client: Mapi):
         result_reporter.add_skipped(f"{SERVICE_NAME}/{SERVICE_NAME}", REQUIRED_CREDS[SERVICE_NAME])
         pytest.skip(f"Skipping {SERVICE_NAME} tests; missing required credentials.")
 
-    operations_checked = []
+    operations_checked: List[str] = []
     op_name = ""
     try:
         # --- Test 1: Get User ---
         op_name = "users/get-by-username"
-        def assert_get_user(data):
+        def assert_get_user(data: Dict[str, Any]):
             assert data.get("login") == TEST_USER
 
         run_test_operation(

@@ -7,6 +7,7 @@ parameters to verify that the client can communicate with the endpoints.
 """
 import pytest
 from dotenv import load_dotenv
+from typing import Any, List, Dict, Tuple
 
 from mapigen import Mapi
 from ..reporting import run_test_operation
@@ -18,7 +19,7 @@ API_NAME = "stripe"
 
 # A list of test cases, where each case is a tuple of:
 # (operation_name, test_case_name, parameters_dict)
-TEST_CASES = [
+TEST_CASES: List[Tuple[str, str, Dict[str, Any]]] = [
 ("GetAccount", "GetAccount", {'expand': []}),
 ("GetIssuingTokensToken", "GetIssuingTokensToken", {'token': 'test_token', 'expand': []}),
 ("PostAccountsAccountPersonsPerson", "PostAccountsAccountPersonsPerson", {'account': 'test_account', 'person': 'test_person', 'additional_tos_acceptances': 'unknown_type', 'address': 'unknown_type', 'address_kana': 'unknown_type', 'address_kanji': 'unknown_type', 'dob': 'unknown_type', 'documents': 'unknown_type', 'email': 'unknown_type', 'expand': 'unknown_type', 'first_name': 'unknown_type', 'first_name_kana': 'unknown_type', 'first_name_kanji': 'unknown_type', 'full_name_aliases': 'unknown_type', 'gender': 'unknown_type', 'id_number': 'unknown_type', 'id_number_secondary': 'unknown_type', 'last_name': 'unknown_type', 'last_name_kana': 'unknown_type', 'last_name_kanji': 'unknown_type', 'maiden_name': 'unknown_type', 'metadata': 'unknown_type', 'nationality': 'unknown_type', 'person_token': 'unknown_type', 'phone': 'unknown_type', 'political_exposure': 'unknown_type', 'registered_address': 'unknown_type', 'relationship': 'unknown_type', 'ssn_last_4': 'unknown_type', 'us_cfpb_data': 'unknown_type', 'verification': 'unknown_type'}),
@@ -37,14 +38,14 @@ def client() -> Mapi:
     return Mapi()
 
 @pytest.mark.parametrize("op_name, case_name, params", TEST_CASES)
-def test_sampled_operation(client: Mapi, op_name: str, case_name: str, params: dict):
+def test_sampled_operation(client: Mapi, op_name: str, case_name: str, params: Dict[str, Any]):
     """
     Dynamically tests an operation with a sampled set of parameters.
     The test case name (e.g., 'min_params') is included for clarity.
     """
-    operations_checked = []
+    operations_checked: List[str] = []
 
-    def generic_assertion(data):
+    def generic_assertion(data: Any):
         """A generic assertion that passes as long as the call completes."""
         assert data is not None
 

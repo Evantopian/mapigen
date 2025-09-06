@@ -1,11 +1,15 @@
 from __future__ import annotations
 from unittest.mock import patch
+import pytest
+from pathlib import Path
 
 from mapigen.cache import ranking
 
-def test_load_popularity_ranks_file_not_found(monkeypatch):
+def test_load_popularity_ranks_file_not_found(monkeypatch: pytest.MonkeyPatch):
     """Tests that load_popularity_ranks returns an empty dict when the file is missing."""
-    monkeypatch.setattr('pathlib.Path.exists', lambda self: False)
+    def mock_exists(self: Path) -> bool:
+        return False
+    monkeypatch.setattr(Path, 'exists', mock_exists)
     # Clear the cache to ensure the function is re-run
     ranking.load_popularity_ranks.cache_clear()
     assert ranking.load_popularity_ranks() == {}

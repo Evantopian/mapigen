@@ -1,6 +1,7 @@
 import os
 import pytest
 from dotenv import load_dotenv
+from typing import Any, List, Dict
 
 from mapigen import Mapi, Auth, MapiError
 from ..helpers import result_reporter
@@ -31,14 +32,14 @@ def test_discord_integration(client: Mapi):
         result_reporter.add_skipped(f"{SERVICE_NAME}/{SERVICE_NAME}", REQUIRED_CREDS[SERVICE_NAME])
         pytest.skip(f"Skipping {SERVICE_NAME} tests; missing required credentials.")
 
-    operations_checked = []
+    operations_checked: List[str] = []
     op_name = ""
     try:
         # --- Test 1: Create Message ---
         op_name = "create_message"
         content = "Mapi Client test..."
 
-        def assert_create_message(data):
+        def assert_create_message(data: Dict[str, Any]):
             assert data.get("content") == content
 
         run_test_operation(
@@ -54,7 +55,7 @@ def test_discord_integration(client: Mapi):
 
         # --- Test 2: Get Channel ---
         op_name = "get_channel"
-        def assert_get_channel(data):
+        def assert_get_channel(data: Dict[str, Any]):
             assert data.get("id") == CHANNEL_ID
 
         run_test_operation(
@@ -69,7 +70,7 @@ def test_discord_integration(client: Mapi):
 
         # --- Test 3: List Messages ---
         op_name = "list_messages"
-        def assert_list_messages(data):
+        def assert_list_messages(data: List[Dict[str, Any]]):
             assert isinstance(data, list)
             assert len(data) <= 5
 
@@ -86,7 +87,7 @@ def test_discord_integration(client: Mapi):
         
         # --- Test 4: Get Message ---
         op_name = "get_message"
-        def assert_get_messages(data):
+        def assert_get_messages(data: Dict[str, Any]):
             assert data.get("id") == MESSAGE_ID
         
         run_test_operation(

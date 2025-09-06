@@ -1,4 +1,6 @@
 """Global fixtures for the test suite."""
+from typing import Any, Dict
+
 import pytest
 import msgspec
 
@@ -50,7 +52,7 @@ def service_data_fixture() -> ServiceData:
     """Returns a reusable, typed ServiceData object for testing."""
     # This is a dictionary representation that will be decoded into the object
     # This makes the fixture more readable and easier to maintain
-    data_dict = {
+    data_dict: Dict[str, Any] = {
         "format_version": 3,
         "service_name": "mock_service",
         "servers": [{"url": "https://example.com", "description": "Test Server"}],

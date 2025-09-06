@@ -7,6 +7,7 @@ parameters to verify that the client can communicate with the endpoints.
 """
 import pytest
 from dotenv import load_dotenv
+from typing import Any, List, Dict, Tuple
 
 from mapigen import Mapi
 from ..reporting import run_test_operation
@@ -18,7 +19,7 @@ API_NAME = "pokeapi"
 
 # A list of test cases, where each case is a tuple of:
 # (operation_name, test_case_name, parameters_dict)
-TEST_CASES = [
+TEST_CASES: List[Tuple[str, str, Dict[str, Any]]] = [
 ("api_v2_ability_list", "api_v2_ability_list", {'limit': 1, 'offset': 1, 'q': 'test_q'}),
 ("api_v2_evolution_trigger_list", "api_v2_evolution_trigger_list", {'limit': 1, 'offset': 1, 'q': 'test_q'}),
 ("api_v2_machine_list", "api_v2_machine_list", {'limit': 1, 'offset': 1, 'q': 'test_q'}),
@@ -37,14 +38,14 @@ def client() -> Mapi:
     return Mapi()
 
 @pytest.mark.parametrize("op_name, case_name, params", TEST_CASES)
-def test_sampled_operation(client: Mapi, op_name: str, case_name: str, params: dict):
+def test_sampled_operation(client: Mapi, op_name: str, case_name: str, params: Dict[str, Any]):
     """
     Dynamically tests an operation with a sampled set of parameters.
     The test case name (e.g., 'min_params') is included for clarity.
     """
-    operations_checked = []
+    operations_checked: List[str] = []
 
-    def generic_assertion(data):
+    def generic_assertion(data: Any):
         """A generic assertion that passes as long as the call completes."""
         assert data is not None
 

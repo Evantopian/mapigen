@@ -1,5 +1,6 @@
 import pytest
 from dotenv import load_dotenv
+from typing import Any, List, Dict
 
 from mapigen import Mapi, MapiError
 from ..helpers import result_reporter
@@ -24,14 +25,14 @@ def test_pokeapi_integration(client: Mapi):
         result_reporter.add_skipped(f"{SERVICE_NAME}/{SERVICE_NAME}", REQUIRED_CREDS[SERVICE_NAME])
         pytest.skip(f"Skipping {SERVICE_NAME} tests; service not configured in REQUIRED_CREDS.")
 
-    operations_checked = []
+    operations_checked: List[str] = []
     op_name = ""
     try:
         # --- Test 1: Get Ditto ---
         op_name = "api_v2_pokemon_retrieve"
         pokemon_id_ditto = "ditto"
 
-        def assert_ditto_data(data):
+        def assert_ditto_data(data: Dict[str, Any]):
             assert data.get("name") == pokemon_id_ditto
 
         run_test_operation(
@@ -48,7 +49,7 @@ def test_pokeapi_integration(client: Mapi):
         op_name = "api_v2_pokemon_retrieve"
         pokemon_id_pikachu = "pikachu"
 
-        def assert_pikachu_data(data):
+        def assert_pikachu_data(data: Dict[str, Any]):
             assert data.get("name") == pokemon_id_pikachu
 
         run_test_operation(

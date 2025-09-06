@@ -7,6 +7,7 @@ parameters to verify that the client can communicate with the endpoints.
 """
 import pytest
 from dotenv import load_dotenv
+from typing import Any, List, Dict, Tuple
 
 from mapigen import Mapi
 from ..reporting import run_test_operation
@@ -18,7 +19,7 @@ API_NAME = "github"
 
 # A list of test cases, where each case is a tuple of:
 # (operation_name, test_case_name, parameters_dict)
-TEST_CASES = [
+TEST_CASES: List[Tuple[str, str, Dict[str, Any]]] = [
 ("actions/add-custom-labels-to-self-hosted-runner-for-org", "actions/add-custom-labels-to-self-hosted-runner-for-org", {'org': 'test_org', 'runner_id': 1, 'labels': 'unknown_type'}),
 ("classroom/get-a-classroom", "classroom/get-a-classroom", {'classroom_id': 1}),
 ("migrations/start-for-org", "migrations/start-for-org", {'org': 'test_org', 'repositories': 'unknown_type', 'lock_repositories': 'unknown_type', 'exclude_metadata': 'unknown_type', 'exclude_git_data': 'unknown_type', 'exclude_attachments': 'unknown_type', 'exclude_releases': 'unknown_type', 'exclude_owner_projects': 'unknown_type', 'org_metadata_only': 'unknown_type', 'exclude': 'unknown_type'}),
@@ -37,14 +38,14 @@ def client() -> Mapi:
     return Mapi()
 
 @pytest.mark.parametrize("op_name, case_name, params", TEST_CASES)
-def test_sampled_operation(client: Mapi, op_name: str, case_name: str, params: dict):
+def test_sampled_operation(client: Mapi, op_name: str, case_name: str, params: Dict[str, Any]):
     """
     Dynamically tests an operation with a sampled set of parameters.
     The test case name (e.g., 'min_params') is included for clarity.
     """
-    operations_checked = []
+    operations_checked: List[str] = []
 
-    def generic_assertion(data):
+    def generic_assertion(data: Any):
         """A generic assertion that passes as long as the call completes."""
         assert data is not None
 

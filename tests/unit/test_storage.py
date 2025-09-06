@@ -3,12 +3,13 @@ import pytest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
 import threading
+from typing import List
 
 from mapigen.cache import storage
 from mapigen.models import ServiceData
 
 
-def test_load_service_from_disk_uncompressed(tmp_path: Path, monkeypatch):
+def test_load_service_from_disk_uncompressed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """Tests that load_service_from_disk can load an uncompressed file."""
     # Use pokeapi as it is small and does not require auth
     service_data = storage.load_service_from_disk("pokeapi", "pokeapi", "github")
@@ -40,11 +41,11 @@ def test_pinned_lru_cache_thread_safety():
     load_func = MagicMock(side_effect=lambda key: {key: "data"})
     cache = storage.PinnedLRUCache(load_func=load_func, pinned_keys={"pinned1"}, maxsize=5)
 
-    def worker(key):
+    def worker(key: str):
         for _ in range(100):
             cache.get(key)
 
-    threads = []
+    threads: List[threading.Thread] = []
     for i in range(10):
         key = f"key{i}"
         if i == 0:

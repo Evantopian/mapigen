@@ -1,13 +1,15 @@
 """Generic, dynamic tests that verify the integrity of all populated service data."""
+from typing import List, Tuple
+
 import pytest
 from mapigen.discovery import DiscoveryClient
 from mapigen.cache.storage import load_service_from_disk
 from mapigen.models import ParameterRef
 
-def get_all_service_identifiers() -> list[tuple[str, str, str]]:
+def get_all_service_identifiers() -> List[Tuple[str, str, str]]:
     """Discovers and returns a list of all available (provider, api, source) tuples."""
     client = DiscoveryClient()
-    identifiers = []
+    identifiers: List[Tuple[str, str, str]] = []
     try:
         providers = client.list_providers()
         for provider in providers:

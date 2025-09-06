@@ -1,5 +1,6 @@
 from __future__ import annotations
 from pathlib import Path
+from typing import Any, List, Dict
 
 from mapigen.tools import pipeline
 
@@ -24,7 +25,7 @@ def test_process_single_service_failure(tmp_path: Path):
 
 def test_create_balanced_batches():
     """Tests that create_balanced_batches creates balanced batches."""
-    services = [
+    services: List[Dict[str, Any]] = [
         {"name": "service_a", "size": 1000},
         {"name": "service_b", "size": 100},
         {"name": "service_c", "size": 900},
