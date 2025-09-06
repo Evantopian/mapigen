@@ -29,7 +29,27 @@ def _sanitize_api_name(name: str) -> str:
 def _update_postman_sources_yaml(updated_sources: List[Dict[str, Any]]):
     """Updates the postman_sources.yaml file with the latest collection names."""
     try:
-        POSTMAN_SOURCES_PATH.write_bytes(msgspec.yaml.encode(updated_sources))
+        from collections import defaultdict
+        grouped_sources = defaultdict(list)
+        for source in updated_sources:
+            grouped_sources[source['provider']].append(source)
+
+        final_yaml_string = ""
+        for provider, sources in grouped_sources.items():
+            for source in sources:
+                final_yaml_string += f"- provider: {source['provider']}\n"
+                final_yaml_string += f"  url: {source['url']}\n"
+                if 'apis' in source:
+                    final_yaml_string += f"  apis:\n"
+                    for api in sorted(source['apis']):
+                        final_yaml_string += f"  - {api}\n"
+            final_yaml_string += "\n"
+
+        # Remove the last newline
+        if final_yaml_string:
+            final_yaml_string = final_yaml_string[:-1]
+
+        POSTMAN_SOURCES_PATH.write_text(final_yaml_string)
         logging.info(f"Updated {POSTMAN_SOURCES_PATH} with the latest collection details.")
     except Exception as e:
         logging.error(f"Failed to update {POSTMAN_SOURCES_PATH}: {e}")
@@ -51,6 +71,8 @@ def _discover_postman_collections(workspaces: List[Dict[str, Any]], session: niq
             collections = workspace_data.get("workspace", {}).get("collections", [])
             
             source_for_yaml = workspace_info.copy()
+            if 'source' in source_for_yaml:
+                del source_for_yaml['source']
             source_for_yaml["apis"] = [_sanitize_api_name(c.get("name")) for c in collections if c.get("name")]
             updated_yaml_entries.append(source_for_yaml)
 
@@ -64,7 +86,11 @@ def _discover_postman_collections(workspaces: List[Dict[str, Any]], session: niq
                     })
         except Exception as e:
             logging.error(f"Failed to fetch workspace {workspace_id}: {e}")
-            updated_yaml_entries.append(workspace_info) # Keep old entry on failure
+            # Create a copy to avoid modifying the original
+            entry = workspace_info.copy()
+            if 'source' in entry:
+                del entry['source']
+            updated_yaml_entries.append(entry) # Keep old entry on failure
 
     _update_postman_sources_yaml(updated_yaml_entries)
     return all_collections

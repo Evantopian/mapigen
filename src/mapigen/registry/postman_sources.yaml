@@ -1,45 +1,44 @@
 - provider: postman
   url: 405e0480-49cf-463b-8052-6c0d05a8e8f3
   apis:
-  - sort-collection-requests-alphabetically
-  - developer-app-ecosystem
-  - deactivate-user-accounts
-  - create-a-collection-backup-via-transfer
-  - create-a-collection-backup
-  - delete-postman-elements-by-tag
-  - postbot
-  - postman-assets-scaffolding
-  - postman-to-swagger-oas-2
-  - postman-to-jmeter
-  - postman-to-openapi
-  - team-transfer
-  - copy-a-workspace
-  - postman-to-markdown-deprecated
-  - postman-api
   - api-usage
+  - copy-a-workspace
+  - create-a-collection-backup
+  - create-a-collection-backup-via-transfer
+  - deactivate-user-accounts
+  - delete-postman-elements-by-tag
+  - developer-app-ecosystem
   - environment-scanner
-  source: postman
+  - postbot
+  - postman-api
+  - postman-assets-scaffolding
+  - postman-to-jmeter
+  - postman-to-markdown-deprecated
+  - postman-to-openapi
+  - postman-to-swagger-oas-2
+  - sort-collection-requests-alphabetically
+  - team-transfer
+
 - provider: discord
   url: 7946ca34-f56e-4ee8-b27f-cad10c009241
   apis:
   - discord-rest-api
-  source: postman
+
 - provider: salesforce
   url: 34382471-0c97-40e5-a206-f947271665c4
   apis:
-  - salesforce-crm-analytics-connect-api
-  - models-api
   - agent-api
-  - salesforce-messaging-for-in-app-and-web-miaw-api
-  - mulesoft-catalyst-knowledge-hub--others
-  - mulesoft-anypoint-platform-apis
-  - salesforce-commerce-b2bd2c
-  - mulesoft-automation-platform-apis
-  - tableau-apis
-  - salesforce-data-cloud-connect-apis
-  - salesforce-data-cloud-apis
-  - salesforce-marketing-cloud-apis
   - marketing-cloud-account-engagement-api-fka-pardot-api
-  - salesforce-platform-apis
+  - models-api
+  - mulesoft-anypoint-platform-apis
+  - mulesoft-automation-platform-apis
+  - mulesoft-catalyst-knowledge-hub--others
+  - salesforce-commerce-b2bd2c
   - salesforce-commerce-b2c
-  source: postman
+  - salesforce-crm-analytics-connect-api
+  - salesforce-data-cloud-apis
+  - salesforce-data-cloud-connect-apis
+  - salesforce-marketing-cloud-apis
+  - salesforce-messaging-for-in-app-and-web-miaw-api
+  - salesforce-platform-apis
+  - tableau-apis

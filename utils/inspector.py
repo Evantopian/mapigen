@@ -3,7 +3,7 @@ import json
 from mapigen import Mapi
 from mapigen.cache.storage import load_service_from_disk
 import msgspec
-from mapigen.models import ParameterRef
+from mapigen.models import ParameterRef, Parameter
 from mapigen.utils.compression_utils import decompress_zstd
 from pathlib import Path
 
@@ -47,6 +47,12 @@ def main():
     # --- decompress command ---
     decompress_parser = subparsers.add_parser("decompress", help="Decompress a zstd file.")
     decompress_parser.add_argument("file_path", help="The path to the file to decompress.")
+
+    # --- find-nameless-params command ---
+    find_nameless_parser = subparsers.add_parser("find-nameless-params", help="Find nameless parameters in a service.")
+    find_nameless_parser.add_argument("provider", help="The name of the provider.")
+    find_nameless_parser.add_argument("api", help="The name of the API.")
+    find_nameless_parser.add_argument("source", help="The source of the API.")
 
     args = parser.parse_args()
     client = Mapi()
@@ -101,6 +107,30 @@ def main():
         output_path = file_path.with_suffix('')
         output_path.write_bytes(decompressed_data)
         print(f"File decompressed to: {output_path}")
+
+    elif args.command == "find-nameless-params":
+        from mapigen.utils.path_utils import get_service_data_path
+        import json
+
+        service_data_dir = get_service_data_path(args.provider, args.api, args.source)
+        utilize_path = service_data_dir / f"{args.api}.utilize.json"
+        if not utilize_path.exists():
+            print(f"utilize.json not found for {args.provider}/{args.api}/{args.source}")
+            return
+
+        data = json.loads(utilize_path.read_bytes())
+        nameless_params = []
+        for param_hash, param_details in data.get("components", {}).get("parameters", {}).items():
+            if not param_details.get("name"):
+                nameless_params.append({
+                    "hash": param_hash,
+                    "details": param_details
+                })
+
+        if nameless_params:
+            print_json(nameless_params)
+        else:
+            print("No nameless parameters found.")
 
 if __name__ == "__main__":
     main()
