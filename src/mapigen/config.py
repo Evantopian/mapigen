@@ -17,6 +17,7 @@ class MapigenConfig(msgspec.Struct, frozen=True, kw_only=True):
     registry_token: Optional[str] = None
     log_level: str = defaults.LOG_LEVEL
 
+    postman_api_key: Optional[str] = None
     _instance: Optional[MapigenConfig] = None
 
     @classmethod
@@ -29,6 +30,7 @@ class MapigenConfig(msgspec.Struct, frozen=True, kw_only=True):
             workers=int(os.getenv("MAPIGEN_WORKERS", defaults.WORKERS)),
             registry_token=os.getenv("MAPIGEN_TOKEN"),
             log_level=os.getenv("MAPIGEN_LOG_LEVEL", defaults.LOG_LEVEL).upper(),
+            postman_api_key=os.getenv("POSTMAN_API_KEY"),
         )
         cls._set_instance(instance)
         return instance
@@ -54,6 +56,9 @@ class MapigenConfig(msgspec.Struct, frozen=True, kw_only=True):
             if data.get("registry_token") is not None
             else None,
             log_level=str(data.get("log_level", defaults.LOG_LEVEL)).upper(),
+            postman_api_key=str(data.get("postman_api_key"))
+            if data.get("postman_api_key") is not None
+            else None,
         )
 
     @classmethod
@@ -67,6 +72,7 @@ class MapigenConfig(msgspec.Struct, frozen=True, kw_only=True):
         registry_token: Optional[str] = None,
         log_level: Optional[str] = None,
         cache_instance: bool = True,
+        postman_api_key: Optional[str] = None,
     ) -> MapigenConfig:
         """Construct configuration programmatically."""
         instance = cls(
@@ -76,6 +82,7 @@ class MapigenConfig(msgspec.Struct, frozen=True, kw_only=True):
             workers=workers or defaults.WORKERS,
             registry_token=registry_token,
             log_level=(log_level or defaults.LOG_LEVEL).upper(),
+            postman_api_key=postman_api_key,
         )
         if cache_instance:
             cls._set_instance(instance)
@@ -90,6 +97,7 @@ class MapigenConfig(msgspec.Struct, frozen=True, kw_only=True):
             "workers": self.workers,
             "registry_token": bool(self.registry_token),
             "log_level": self.log_level,
+            "postman_api_key": bool(self.postman_api_key),
         }
 
     @classmethod
