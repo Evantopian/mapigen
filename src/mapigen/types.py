@@ -6,12 +6,19 @@ import msgspec
 
 PathLike: TypeAlias = str | Path
 LogLevel: TypeAlias = Literal["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "TRACE"]
-CompressionStrategy: TypeAlias = Literal["zstd", "gzip", "none"]
-BundleFormat: TypeAlias = Literal["tar.zst", "tar.gz", "directory"]
+CompressionStrategy: TypeAlias = Literal["zstd", "none"]
+
+
+POSTMAN_BASE_URL: Final[str] = "https://api.getpostman.com"
+
+BundleFormat: TypeAlias = Literal["tar.zst"]
+ParseableFileType: TypeAlias = Literal["yaml", "json", "msgspec"] 
 SupportedFileType: TypeAlias = Literal["yaml", "json", "zst", "msgspec", "unknown"]
 
+InputFileType: TypeAlias = Literal["yaml", "json"]
+OutputFileType: TypeAlias = Literal["msgspec", "zst"]
 
-DECODER_MAP: Final[dict[SupportedFileType, Callable[[bytes], Any]]] = {
+DECODER_MAP: Final[dict[ParseableFileType, Callable[[bytes], Any]]] = {
     "yaml": msgspec.yaml.decode,
     "json": msgspec.json.decode,
     "msgspec": msgspec.msgpack.decode,

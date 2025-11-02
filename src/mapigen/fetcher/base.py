@@ -7,7 +7,7 @@ logger = structlog.get_logger(__name__)
 
 
 class HTTPClient(Protocol):
-    """Minimal protocol for HTTP clients compatible with Niquests."""
+    """Minimal protocol for Niquests-compatible HTTP clients."""
     headers: Mapping[str, str]
 
     def __enter__(self) -> HTTPClient: ...
@@ -17,7 +17,10 @@ class HTTPClient(Protocol):
 
 
 class BaseFetcher:
-    """Abstract fetcher providing common HTTP session utilities and logging."""
+    """
+    Base class providing common HTTP session creation,
+    logging, and convenience helpers for derived fetchers.
+    """
 
     def __init__(self, user_agent: str = "mapigen-fetcher/2.0") -> None:
         self._user_agent = user_agent
@@ -26,15 +29,15 @@ class BaseFetcher:
     def create_session(self) -> HTTPClient:
         """Create and configure an HTTP session."""
         session = Session()
-        session.headers.update({"User-Agent": self._user_agent}) # type: ignore
+        session.headers.update({"User-Agent": self._user_agent}) # type: ignore 
         return session # type: ignore
 
     def fetch_raw(self, url: str, *, timeout: int = 30) -> bytes:
-        """Fetch raw bytes from a URL."""
+        """Fetch raw bytes from a URL using a managed session."""
         self.logger.debug("Fetching raw content", url=url, timeout=timeout)
         with self.create_session() as session:
             resp = session.get(url, timeout=timeout)
             resp.raise_for_status()
             if not resp.content:
-                raise ValueError(f"Received empty response for URL: {url}")
+                raise ValueError(f"Empty response from URL: {url}")
             return resp.content

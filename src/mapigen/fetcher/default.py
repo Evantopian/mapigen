@@ -2,7 +2,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 import structlog
-from niquests import Timeout, ConnectionError
+from niquests import Timeout, ConnectionError  # type: ignore
 
 from mapigen.fetcher.base import BaseFetcher
 from mapigen.models import ErrorRecord, ErrorStage
@@ -11,8 +11,9 @@ from mapigen.utils.compression import compress_zstd
 
 logger = structlog.get_logger(__name__)
 
-class SpecFetcher(BaseFetcher):
-    """Responsible for downloading and storing OpenAPI specs."""
+
+class HTTPFetcher(BaseFetcher):
+    """Generic HTTP-based fetcher for OpenAPI specs (GitHub, custom, etc.)."""
 
     def __init__(self, *, compression_level: int = 7, user_agent: str = "mapigen-fetcher/2.0") -> None:
         super().__init__(user_agent)
@@ -28,9 +29,9 @@ class SpecFetcher(BaseFetcher):
         timeout: int = 30,
         compress: bool = True,
     ) -> dict[str, str | float | None]:
-        """Fetch and persist a remote API spec (YAML or JSON)."""
+        """Fetch any OpenAPI spec over HTTP and store it compressed locally."""
         start = time.perf_counter()
-        output_dir = Path(output_dir)
+        output_dir = Path(output_dir) / provider / api
         output_dir.mkdir(parents=True, exist_ok=True)
 
         spec_path = output_dir / f"{api}.openapi"
@@ -51,7 +52,7 @@ class SpecFetcher(BaseFetcher):
                     spec_path.write_bytes(content)
 
             elapsed = round(time.perf_counter() - start, 3)
-            self.logger.info("Fetched spec", provider=provider, api=api, duration=elapsed)
+            logger.info("Fetched spec", provider=provider, api=api, duration=elapsed)
 
             return {
                 "status": "success",
@@ -70,7 +71,7 @@ class SpecFetcher(BaseFetcher):
                 provider=provider,
                 api=api,
             )
-            self.logger.error("Fetch network error", error=str(e))
+            logger.error("HTTP fetch network error", provider=provider, api=api, error=str(e))
             return {"status": "failure", "error": err.message, "detail": err.detail}
 
         except Exception as e:
@@ -81,5 +82,5 @@ class SpecFetcher(BaseFetcher):
                 provider=provider,
                 api=api,
             )
-            self.logger.error("Fetch failure", error=str(e))
+            logger.error("HTTP fetch failure", provider=provider, api=api, error=str(e))
             return {"status": "failure", "error": err.message, "detail": err.detail}
